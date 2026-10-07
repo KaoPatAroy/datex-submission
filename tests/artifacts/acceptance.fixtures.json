@@ -1,0 +1,6 @@
+[
+  { "prompt": "Make it a chart", "primitive": "bar", "regions": ["east"], "branches": ["E01", "E02"], "values": [200, 80] },
+  { "prompt": "Make this a chart", "primitive": "bar", "regions": ["east"], "branches": ["E01", "E02"], "values": [200, 80] },
+  { "prompt": "Chart these same East sales", "primitive": "bar", "regions": ["east"], "branches": ["E01", "E02"], "values": [200, 80] },
+  { "prompt": "Turn the current results into a bar chart", "primitive": "bar", "regions": ["east"], "branches": ["E01", "E02"], "values": [200, 80] }
+]

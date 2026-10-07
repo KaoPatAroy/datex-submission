@@ -1,0 +1,24 @@
+.dialog h2:focus { outline: none; }
+.editor { margin-top: 22px; padding-top: 20px; border-top: 1px solid var(--line); }
+.editor h3, .cancelPrompt h3 { margin: 0 0 8px; font-size: 16px; }
+.editor p, .cancelPrompt p { color: var(--muted); font-size: 13px; line-height: 1.75; }
+.fields { border: 0; margin: 0; padding: 0; min-width: 0; }
+.fields textarea { width: 100%; border: 1px solid var(--control-line); border-radius: 6px; padding: 10px; resize: vertical; color: var(--ink); background: white; }
+.fields:disabled { opacity: .7; }
+.widgetModes { border: 1px solid var(--line); padding: 12px; border-radius: 6px; min-width: 0; }
+.widgetModes legend { padding-inline: 5px; font-size: 14px; font-weight: 600; }
+.widgetModes label, .removeRow { display: flex; align-items: center; gap: 9px; min-height: 44px; cursor: pointer; font-size: 14px; }
+.widgetModes input, .removeRow input { width: 18px; height: 18px; accent-color: var(--accent); flex-shrink: 0; }
+.widgetList { list-style: none; padding: 0; margin: 12px 0; }
+.widgetRow { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+.widgetRow > div { display: flex; gap: 6px; flex-shrink: 0; }
+.widgetRow button { min-width: 44px; min-height: 44px; }
+.tools { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 16px; }
+.cancelPrompt { margin-top: 20px; padding: 16px; border: 1px solid #ebd6a4; border-radius: 6px; background: #fff8e8; }
+@media (max-width: 479px) { .widgetRow { flex-wrap: wrap; } .widgetRow > span { flex: 1; min-width: 150px; } }
+.dialog:global(.action-dialog) { overflow: hidden; }
+.dialog :global(.dialog-header), .dialog :global(.dialog-footer) { flex-shrink: 0; }
+.dialog :global(.dialog-body) { overflow-y: auto; overscroll-behavior: contain; scroll-padding-block: 12px; }
+.dialog :global(.dialog-footer) { position: static; }
+.dialog:global(.action-dialog) { border-color: var(--line); }
+.dialog::backdrop { background: rgb(18 39 71 / 40%); }

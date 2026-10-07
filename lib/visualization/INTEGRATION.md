@@ -1,0 +1,23 @@
+# Wave 3 safe renderer integration
+
+`compileArtifactRenderer({artifact, authority, visualExpression}): {outcome:'accepted', spec:ArtifactRendererSpec} | RejectedPlan` is the single compiler entry. `artifact` must be a runtime-trusted result of `prepareArtifact` or trusted-store `loadArtifact`, never an AI/client-supplied record. Rendering is owner-only until Wave 4 supplies a reviewed exact-recipient grant boundary. The server reloads actor and current catalog policy before returning protected renderer data. Under proposed `BIZTANIA_DYNAMIC_ARTIFACTS=on`, the lead calls this after artifact preparation in `ConciergeService.chat`'s accepted dynamic result branch and on authorized artifact reload. Supply `null` expression for non-chart kinds; a chart requires strict registered VisualizationPlan + InteractionSpec + AnimationSpec. Rejections carry no renderer output or legacy fallback.
+
+Bar/category and line/date-time are the only primitives. Axes bind to existing query dimension/measure IDs and grounded claim values; shared axes require matching units. Multi-series values are unique at category/series grain; mark and series budgets fail closed. Model-selected measures may limit the plotted series, but every original claim remains in the complete table. Ranking artifacts preserve the original registered complete-population rank claims, top-N selection and caveats; the renderer never recalculates a ranking or query.
+
+Line coordinates use elapsed UTC business dates across the full pinned date domain. Missing/filtered dates and unavailable values break segments; they are never connected as a continuous trend. Wide charts retain a readable scroll width. Blue pattern/dash legends and series-labelled titles distinguish each bounded series without relying on reduced contrast.
+
+Interaction IDs are `inspect_data` (required), `inspect_sources`, `select_point`; selection fields must exist in the claim grain. No drilldown, query rerun, external URL, HTML/CSS options or effect. Animation modes `none`/bounded `fade` require `reducedMotion:respect`; components disable animation with CSS `prefers-reduced-motion`. Native select, details/summary, focusable scroll regions, table headings/captions and complete text values support keyboard and touch independently of SVG hover. The existing `--accent*`, surface, ink, line and focus tokens define the preview; no new palette or global CSS changes.
+
+Render `<ArtifactPreview spec={spec}/>` from `components/biztania/artifact-preview.tsx` in the new artifact surface. Only `artifact-chart.tsx` crosses the client boundary; its imports are browser-safe geometry/formatting plus type-only contracts. Server hashing/validation never enters that graph. Components use React text escaping; no injected markup, dynamic tag names or generated code. CSV is plain preview text; confirmation/effects stay with the service shell.
+
+The lead adds a separate flagged artifact surface alongside `components/dashboard-detail.tsx`; do not replace the legacy Widget switch or reinterpret old dashboard specs. UI modules reuse existing tokens and native data-table conventions, while the legacy EvidenceArtifact accepts Track A Evidence/Analysis and cannot preserve generalized Wave 1 claim refs.
+
+Component-free tests validate strict schemas, compiler grounding/auth/budgets, CSV and geometry, and business acceptance projections. Actual browser rendering, screen-reader/device checks and durable reload require the lead's integration lane; no Next dev/build was run here.
+
+
+## Closure decisions (Track B lane C)
+
+- Registered families: bar, line, area, scatter, heatmap, pie, donut, treemap, combo, metric (table/ranking/brief/CSV are artifact kinds). Each family has data-shape suitability rules in `compile.ts`; an unsuitable request falls back truthfully to the exact table.
+- **Map: not offered.** The registered catalog (`branch_performance`) has no geographic coordinates or boundary data, only region/branch ids, so a map would be invented. **Sankey: not offered.** There are no real source/target edge records. Both stay out of `VISUAL_PRIMITIVES` and are rejected at the schema boundary; add them only with a catalog dataset that supplies real geography / edges.
+- Interactions: tooltip, hover/focus highlight with dimming, selection, cross-filter (chart + table), legend toggle, zoom/brush (native selects), reset, drilldown (server linked read through `executeQueryStep` under the viewer's current authority). Unsupported ones for a data shape are dropped by `effectiveInteraction`.
+- Animation: none, fade, interpolate, reorder; `prefers-reduced-motion` and a JS `matchMedia` check disable all motion.

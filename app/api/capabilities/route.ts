@@ -1,0 +1,2 @@
+import {NextResponse} from 'next/server';import {getStore} from '@/lib/storage';import {actorSession} from '@/lib/server/session';import {failure} from '@/lib/server/http';import {ConciergeService} from '@/lib/core/service';
+export async function GET(){try{const store=await getStore(),{actor}=await actorSession(store);return NextResponse.json((await new ConciergeService(store).getWorkspace(actor)).capabilities,{headers:{'Cache-Control':'no-store'}});}catch(error){return failure(error);}}

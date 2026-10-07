@@ -1,0 +1,32 @@
+# Dependencies and build output
+node_modules/
+.next/
+out/
+dist/
+coverage/
+.local/
+test-results/
+playwright-report/
+*.tsbuildinfo
+
+# Local environment and secrets
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*.local
+!.env.example
+
+# Logs and local tooling
+*.log
+.vercel/
+.DS_Store
+Thumbs.db
+
+# Current local hackathon context/reference files
+# Keep these on this machine; do not commit them.
+/Competition Booklet _ Engineering Track.pdf
+/BIZTANIA_AI_CONCIERGE_CONTEXT.md
+/AI_RUNTIME_9ARM.md
+/CODEX_START_PROMPT.md

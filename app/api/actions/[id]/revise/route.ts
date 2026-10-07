@@ -1,0 +1,25 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { ConciergeService } from '@/lib/core/service';
+import { revisePendingActionRequestSchema } from '@/lib/core/action-revision';
+import { failure } from '@/lib/server/http';
+import { actorSession, checkCsrf } from '@/lib/server/session';
+import { getStore } from '@/lib/storage';
+
+export const runtime = 'nodejs';
+export const maxDuration = 120;
+
+export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
+  try {
+    const store = await getStore();
+    const { actor, session } = await actorSession(store);
+    checkCsrf(request, session);
+    const body = revisePendingActionRequestSchema.parse(await request.json());
+    const { id } = await context.params;
+    const result = await new ConciergeService(store).revisePendingAction(actor, id, body.patch, body.requestKey);
+    return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } });
+  } catch (error) {
+    const response = failure(error);
+    response.headers.set('Cache-Control', 'no-store');
+    return response;
+  }
+}

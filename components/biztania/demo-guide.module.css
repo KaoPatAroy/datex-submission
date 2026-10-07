@@ -1,0 +1,27 @@
+.guide { margin: 0 0 24px; padding: 20px; background: var(--surface-soft); border: 1px solid var(--line-strong); border-radius: var(--radius-md); }
+.guide > header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.guide h2 { margin: 0; font-size: var(--text-title); color: var(--accent-ink); }
+.guide > ul { margin: 12px 0 16px; padding-left: 1.25rem; list-style: disc; color: var(--muted); }
+.kind { display: inline-block; margin-top: 6px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line-strong); color: var(--accent-ink); font-size: var(--text-xs); }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 12px; text-align: left; }
+.card { padding: 16px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); min-width: 0; }
+.card h3 { margin: 0; font-size: var(--text-ui); overflow-wrap: anywhere; }
+.card p { margin: 8px 0 12px; color: var(--muted); font-size: var(--text-sm); }
+.card button { min-height: var(--control-height); }
+.liveLink { display: inline-block; margin-top: 16px; min-height: var(--control-height); text-align: left; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.chips button { white-space: normal; text-align: left; min-height: var(--control-height); }
+.availability { max-width: 760px; margin-inline: auto; padding: 12px 16px; margin-bottom: 12px; background: var(--accent-soft); color: var(--ink); border: 1px solid var(--line-strong); border-radius: var(--radius-sm); }
+.availability p { margin: 0 0 10px; font-size: var(--text-sm); line-height: 20px; }
+.availability > div { display: flex; flex-wrap: wrap; gap: 8px; }
+.headerButton { min-height: var(--control-height); white-space: normal; font-size: var(--text-sm); }
+@media (max-width: 1023px) {
+  .headerButton { grid-column: 1 / -1; grid-row: 3; justify-self: start; margin: 6px 0; }
+}
+@media (max-width: 767px) {
+  .guide { padding: 14px; }
+  .guide > header { align-items: flex-start; }
+  .cards { grid-template-columns: 1fr; }
+  .card { padding: 12px; }
+  .headerButton { padding: 6px 8px; }
+}

@@ -1,0 +1,3 @@
+import {NextRequest,NextResponse} from 'next/server';import {z} from 'zod';import {getStore} from '@/lib/storage';import {actorSession,checkCsrf} from '@/lib/server/session';import {failure} from '@/lib/server/http';import {ConciergeService} from '@/lib/core/service';
+export const runtime='nodejs';
+export async function POST(request:NextRequest){try{const store=await getStore(),{actor,session}=await actorSession(store);checkCsrf(request,session);const body=z.object({scenario:z.enum(['stock_recovered','payment_resolved','baseline'])}).strict().parse(await request.json());return NextResponse.json(await new ConciergeService(store).prepare(actor,{kind:'demo_update',scenario:body.scenario}));}catch(error){return failure(error);}}

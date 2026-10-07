@@ -1,0 +1,49 @@
+.card { border: 1px solid #b7cdf5; background: #f4f8ff; border-radius: 12px; padding: 12px 14px; margin-top: 10px; display: grid; gap: 8px; }
+.cardHead { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: #123c8a; }
+.pill { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: #dbe7ff; color: #1d4fbf; }
+.preview { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.cardFoot { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: 13px; color: #4b5d7e; }
+.list { display: grid; gap: 10px; }
+.dialog { max-width: 560px; }
+.details { display: grid; gap: 6px; margin: 12px 0; padding: 10px 12px; border: 1px solid #d5e1f7; border-radius: 10px; background: #fafcff; }
+.details div { display: grid; grid-template-columns: 9em 1fr; gap: 8px; }
+.details dt { color: #4b5d7e; }
+.details dd { margin: 0; overflow-wrap: anywhere; }
+.receipt, .receiptOk { margin-top: 12px; padding: 10px 12px; border-radius: 10px; border: 1px solid #d5e1f7; background: #f4f8ff; }
+.receiptOk { border-color: #9fd6b3; background: #effaf3; }
+.receipt p, .receiptOk p { margin: 4px 0 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.chip { border: 1px solid #1d4fbf; color: #1d4fbf; background: #fff; border-radius: 999px; padding: 6px 14px; font: inherit; cursor: pointer; min-height: 36px; }
+.chip:hover:not(:disabled) { background: #eaf1ff; }
+.chip:focus-visible { outline: 2px solid #1d4fbf; outline-offset: 2px; }
+.chip:disabled { opacity: 0.55; cursor: not-allowed; }
+.artifactActions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
+.noticeOk { color: #1c6b3c; font-size: 13px; }
+.noticeError { color: #a02828; font-size: 13px; }
+.receiptCard { border: 1px solid #b7cdf5; background: #f4f8ff; border-radius: 12px; padding: 12px 14px; display: grid; gap: 8px; }
+.pillOk { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: #dbe7ff; color: #123c8a; font-weight: 600; }
+.receiptLine { margin: 0; color: #123c8a; overflow-wrap: anywhere; }
+.receiptContent { margin: 6px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.history { margin: 0; padding-left: 1.25rem; display: grid; gap: 6px; }
+.history li { display: grid; gap: 2px; color: #123c8a; }
+.subHeading { margin: 18px 0 8px; font-size: 14px; font-weight: 600; color: #123c8a; }
+
+/* Form controls inside panel search bars and edit forms: a visible, labelled box (not bare text) at every width. */
+.artifactActions label { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; font-weight: 600; }
+.receipt label { display: grid; gap: 4px; width: 100%; font-weight: 600; }
+.artifactActions input, .receipt input, .receipt select, .receipt textarea {
+  font: inherit; font-weight: 400; color: var(--ink, #18243b); background: #fff; border: 1px solid var(--line-strong, #b8c5db); border-radius: 8px;
+  padding: 7px 10px; min-height: 38px; min-width: 0; max-width: 100%; box-sizing: border-box;
+}
+.artifactActions input { width: min(280px, 100%); }
+.receipt input, .receipt select, .receipt textarea { width: 100%; }
+.artifactActions input:focus-visible, .receipt input:focus-visible, .receipt select:focus-visible, .receipt textarea:focus-visible { outline: 3px solid #2855d9; outline-offset: 1px; border-color: #2855d9; }
+
+/* History: assistant sections sit below the request records with clear section headings. */
+.historySections { display: grid; gap: 12px; margin-top: 24px; }
+.sectionHeading { margin: 12px 0 0; padding-top: 16px; border-top: 1px solid var(--line, #d6deea); font-size: 16px; font-weight: 650; color: var(--ink, #18243b); }
+.historySections > .sectionHeading:first-child { margin-top: 0; }
+
+/* Irreversible confirm (delete): filled danger style, distinct from the outline chips around it. */
+.chipDanger { border-color: #b42318; background: #b42318; color: #fff; }
+.chipDanger:hover:not(:disabled) { background: #912018; }

@@ -1,0 +1,1402 @@
+[
+  {
+    "message": "ยอดขายรวมวันที่ 1 ตุลาคม 2569",
+    "raw": "```json\n{\n  \"planVersion\": 1,\n  \"planId\": \"plan-2026-10-01-net-sales\",\n  \"datasetId\": \"branch_performance\",\n  \"measures\": [\n    {\n      \"fieldId\": \"net_sales\",\n      \"aggregation\": \"sum\",\n      \"interpretation\": {\n        \"value\": \"net_sales\",\n        \"source\": \"explicit\",\n        \"sourceText\": {\n          \"start\": 0,\n          \"end\": 10,\n          \"text\": \"ยอดขายรวม\"\n        },\n        \"confidence\": 0.95\n      }\n    }\n  ],\n  \"dimensions\": [\n    {\n      \"fieldId\": \"branch\",\n      \"interpretation\": {\n        \"value\": \"branch\",\n        \"source\": \"default\",\n        \"sourceText\": null,\n        \"confidence\": 1.0\n      }\n    }\n  ],\n  \"filters\": [],\n  \"scope\": null,\n  \"time\": {\n    \"fieldId\": \"date\",\n    \"timezone\": \"Asia/Bangkok\",\n    \"source\": \"explicit\",\n    \"sourceText\": {\n      \"start\": 11,\n      \"end\": 25,\n      \"text\": \"วันที่ 1 ตุลาคม 2569\"\n    },\n    \"kind\": \"date\",\n    \"date\": \"2026-10-01\"\n  },\n  \"grain\": [\n    \"branch\",\n    \"date\"\n  ],\n  \"aggregation\": \"registered\",\n  \"multiDateGrain\": null,\n  \"group\": {\n    \"fieldIds\": [\n      \"branch\"\n    ]\n  },\n  \"compare\": null,\n  \"sort\": [],\n  \"topN\": null,\n  \"completeness\": {\n    \"expectation\": \"requested_scope\",\n    \"requireFullPopulation\": false,\n    \"requiredSourceIds\": [],\n    \"minimumCoverage\": 0\n  },\n  \"clarificationNeeds\": [],\n  \"confidence\": 0.95,\n  \"requestedUses\": [\n    \"answer\"\n  ],\n  \"intentKind\": \"query\",\n  \"parentState\": null\n}\n```",
+    "contractPlan": {
+      "planVersion": 1,
+      "planId": "plan-2026-10-01-net-sales",
+      "datasetId": "branch_performance",
+      "measures": [
+        {
+          "fieldId": "net_sales",
+          "aggregation": "sum",
+          "interpretation": {
+            "value": "net_sales",
+            "source": "explicit",
+            "sourceText": {
+              "start": 0,
+              "end": 10,
+              "text": "ยอดขายรวม"
+            },
+            "confidence": 0.95
+          }
+        }
+      ],
+      "dimensions": [
+        {
+          "fieldId": "branch",
+          "interpretation": {
+            "value": "branch",
+            "source": "default",
+            "sourceText": null,
+            "confidence": 1.0
+          }
+        }
+      ],
+      "filters": [],
+      "scope": null,
+      "time": {
+        "fieldId": "date",
+        "timezone": "Asia/Bangkok",
+        "source": "explicit",
+        "dates": [
+          "2026-10-01"
+        ],
+        "evidenceText": "วันที่ 1 ตุลาคม 2569"
+      },
+      "grain": [
+        "branch",
+        "date"
+      ],
+      "aggregation": "registered",
+      "multiDateGrain": null,
+      "group": {
+        "fieldIds": [
+          "branch"
+        ]
+      },
+      "compare": null,
+      "sort": [],
+      "topN": null,
+      "completeness": {
+        "expectation": "requested_scope",
+        "requireFullPopulation": false,
+        "requiredSourceIds": [],
+        "minimumCoverage": 0
+      },
+      "clarificationNeeds": [],
+      "confidence": 0.95,
+      "requestedUses": [
+        "answer"
+      ],
+      "intentKind": "query",
+      "parentState": null
+    }
+  },
+  {
+    "message": "ยอดขายสาขา E01 วันที่ 1 ตุลาคม 2569",
+    "raw": "```json\n{\n  \"planVersion\": 1,\n  \"planId\": \"plan-2026-10-01-e01\",\n  \"datasetId\": \"branch_performance\",\n  \"measures\": [\n    {\n      \"fieldId\": \"net_sales\",\n      \"aggregation\": \"sum\",\n      \"interpretation\": {\n        \"value\": \"net_sales\",\n        \"source\": \"explicit\",\n        \"sourceText\": {\n          \"start\": 0,\n          \"end\": 5,\n          \"text\": \"ยอดขาย\"\n        },\n        \"confidence\": 0.95\n      }\n    }\n  ],\n  \"dimensions\": [\n    {\n      \"fieldId\": \"branch\",\n      \"interpretation\": {\n        \"value\": \"E01\",\n        \"source\": \"explicit\",\n        \"sourceText\": {\n          \"start\": 6,\n          \"end\": 9,\n          \"text\": \"E01\"\n        },\n        \"confidence\": 0.99\n      }\n    }\n  ],\n  \"filters\": [\n    {\n      \"fieldId\": \"branch\",\n      \"op\": \"eq\",\n      \"value\": \"E01\",\n      \"sourceText\": {\n        \"start\": 6,\n        \"end\": 9,\n        \"text\": \"E01\"\n      },\n      \"confidence\": 0.99\n    }\n  ],\n  \"scope\": null,\n  \"time\": {\n    \"fieldId\": \"date\",\n    \"timezone\": \"Asia/Bangkok\",\n    \"source\": \"explicit\",\n    \"sourceText\": {\n      \"start\": 10,\n      \"end\": 24,\n      \"text\": \"วันที่ 1 ตุลาคม 2569\"\n    },\n    \"kind\": \"date\",\n    \"date\": \"2026-10-01\"\n  },\n  \"grain\": [\n    \"branch\",\n    \"date\"\n  ],\n  \"aggregation\": \"registered\",\n  \"multiDateGrain\": null,\n  \"group\": {\n    \"fieldIds\": [\n      \"branch\"\n    ]\n  },\n  \"compare\": null,\n  \"sort\": [],\n  \"topN\": null,\n  \"completeness\": {\n    \"expectation\": \"requested_scope\",\n    \"requireFullPopulation\": false,\n    \"requiredSourceIds\": [],\n    \"minimumCoverage\": 1.0\n  },\n  \"clarificationNeeds\": [],\n  \"confidence\": 0.95,\n  \"requestedUses\": [\n    \"answer\"\n  ],\n  \"intentKind\": \"query\",\n  \"parentState\": null\n}\n```",
+    "contractPlan": {
+      "planVersion": 1,
+      "planId": "plan-2026-10-01-e01",
+      "datasetId": "branch_performance",
+      "measures": [
+        {
+          "fieldId": "net_sales",
+          "aggregation": "sum",
+          "interpretation": {
+            "value": "net_sales",
+            "source": "explicit",
+            "sourceText": {
+              "start": 0,
+              "end": 5,
+              "text": "ยอดขาย"
+            },
+            "confidence": 0.95
+          }
+        }
+      ],
+      "dimensions": [
+        {
+          "fieldId": "branch",
+          "interpretation": {
+            "value": "E01",
+            "source": "explicit",
+            "sourceText": {
+              "start": 6,
+              "end": 9,
+              "text": "E01"
+            },
+            "confidence": 0.99
+          }
+        }
+      ],
+      "filters": [
+        {
+          "fieldId": "branch",
+          "op": "eq",
+          "value": "E01",
+          "sourceText": {
+            "start": 6,
+            "end": 9,
+            "text": "E01"
+          },
+          "confidence": 0.99,
+          "source": "explicit",
+          "evidenceText": "E01"
+        }
+      ],
+      "scope": null,
+      "time": {
+        "fieldId": "date",
+        "timezone": "Asia/Bangkok",
+        "source": "explicit",
+        "dates": [
+          "2026-10-01"
+        ],
+        "evidenceText": "วันที่ 1 ตุลาคม 2569"
+      },
+      "grain": [
+        "branch",
+        "date"
+      ],
+      "aggregation": "registered",
+      "multiDateGrain": null,
+      "group": {
+        "fieldIds": [
+          "branch"
+        ]
+      },
+      "compare": null,
+      "sort": [],
+      "topN": null,
+      "completeness": {
+        "expectation": "requested_scope",
+        "requireFullPopulation": false,
+        "requiredSourceIds": [],
+        "minimumCoverage": 1.0
+      },
+      "clarificationNeeds": [],
+      "confidence": 0.95,
+      "requestedUses": [
+        "answer"
+      ],
+      "intentKind": "query",
+      "parentState": null
+    }
+  },
+  {
+    "message": "May I see E01 sales?",
+    "raw": "```json\n{\n  \"planVersion\": 1,\n  \"planId\": \"plan-e01-sales-001\",\n  \"datasetId\": \"branch_performance\",\n  \"measures\": [\n    {\n      \"fieldId\": \"net_sales\",\n      \"aggregation\": \"sum\",\n      \"interpretation\": {\n        \"value\": \"net_sales\",\n        \"source\": \"explicit\",\n        \"sourceText\": {\n          \"start\": 10,\n          \"end\": 15,\n          \"text\": \"sales\"\n        },\n        \"confidence\": 0.95\n      }\n    }\n  ],\n  \"dimensions\": [\n    {\n      \"fieldId\": \"branch\",\n      \"interpretation\": {\n        \"value\": \"branch\",\n        \"source\": \"explicit\",\n        \"sourceText\": {\n          \"start\": 10,\n          \"end\": 15,\n          \"text\": \"sales\"\n        },\n        \"confidence\": 0.9\n      }\n    }\n  ],\n  \"filters\": [\n    {\n      \"fieldId\": \"branch\",\n      \"op\": \"eq\",\n      \"value\": \"E01\",\n      \"sourceText\": {\n        \"start\": 8,\n        \"end\": 11,\n        \"text\": \"E01\"\n      },\n      \"confidence\": 1.0\n    }\n  ],\n  \"scope\": null,\n  \"time\": {\n    \"fieldId\": \"date\",\n    \"timezone\": \"Asia/Bangkok\",\n    \"source\": \"default\",\n    \"sourceText\": null,\n    \"kind\": \"date\",\n    \"date\": \"2023-10-27\"\n  },\n  \"grain\": [\n    \"branch\",\n    \"date\"\n  ],\n  \"aggregation\": \"registered\",\n  \"multiDateGrain\": null,\n  \"group\": {\n    \"fieldIds\": [\n      \"branch\",\n      \"date\"\n    ]\n  },\n  \"compare\": null,\n  \"sort\": [],\n  \"topN\": null,\n  \"completeness\": {\n    \"expectation\": \"requested_scope\",\n    \"requireFullPopulation\": false,\n    \"requiredSourceIds\": [],\n    \"minimumCoverage\": 1.0\n  },\n  \"clarificationNeeds\": [],\n  \"confidence\": 0.95,\n  \"requestedUses\": [\n    \"answer\"\n  ],\n  \"intentKind\": \"query\",\n  \"parentState\": null\n}\n```",
+    "contractPlan": {
+      "planVersion": 1,
+      "planId": "plan-e01-sales-001",
+      "datasetId": "branch_performance",
+      "measures": [
+        {
+          "fieldId": "net_sales",
+          "aggregation": "sum",
+          "interpretation": {
+            "value": "net_sales",
+            "source": "explicit",
+            "sourceText": {
+              "start": 10,
+              "end": 15,
+              "text": "sales"
+            },
+            "confidence": 0.95
+          }
+        }
+      ],
+      "dimensions": [
+        {
+          "fieldId": "branch",
+          "interpretation": {
+            "value": "branch",
+            "source": "explicit",
+            "sourceText": {
+              "start": 10,
+              "end": 15,
+              "text": "sales"
+            },
+            "confidence": 0.9
+          }
+        }
+      ],
+      "filters": [
+        {
+          "fieldId": "branch",
+          "op": "eq",
+          "value": "E01",
+          "sourceText": {
+            "start": 8,
+            "end": 11,
+            "text": "E01"
+          },
+          "confidence": 1.0,
+          "source": "explicit",
+          "evidenceText": "E01"
+        }
+      ],
+      "scope": null,
+      "time": {
+        "fieldId": "date",
+        "timezone": "Asia/Bangkok",
+        "source": "default",
+        "dates": [
+          "2023-10-27"
+        ]
+      },
+      "grain": [
+        "branch",
+        "date"
+      ],
+      "aggregation": "registered",
+      "multiDateGrain": null,
+      "group": {
+        "fieldIds": [
+          "branch",
+          "date"
+        ]
+      },
+      "compare": null,
+      "sort": [],
+      "topN": null,
+      "completeness": {
+        "expectation": "requested_scope",
+        "requireFullPopulation": false,
+        "requiredSourceIds": [],
+        "minimumCoverage": 1.0
+      },
+      "clarificationNeeds": [],
+      "confidence": 0.95,
+      "requestedUses": [
+        "answer"
+      ],
+      "intentKind": "query",
+      "parentState": null
+    }
+  },
+  {
+    "message": "ขอดูยอดขายฝั่งตะวันออกทั้งหมด วันที่ 1 ตุลาคม 2569",
+    "raw": "```json\n{\n  \"planVersion\": 1,\n  \"planId\": \"plan-2026-03-01-east-sales\",\n  \"datasetId\": \"branch_performance\",\n  \"measures\": [\n    {\n      \"fieldId\": \"net_sales\",\n      \"aggregation\": \"sum\",\n      \"interpretation\": {\n        \"value\": \"net_sales\",\n        \"source\": \"explicit\",\n        \"sourceText\": {\n          \"start\": 0,\n          \"end\": 7,\n          \"text\": \"ยอดขาย\"\n        },\n        \"confidence\": 0.95\n      }\n    }\n  ],\n  \"dimensions\": [\n    {\n      \"fieldId\": \"branch\",\n      \"interpretation\": {\n        \"value\": \"branch\",\n        \"source\": \"explicit\",\n        \"sourceText\": {\n          \"start\": 7,\n          \"end\": 18,\n          \"text\": \"ฝั่่งตะวันออก\"\n        },\n        \"confidence\": 0.9\n      }\n    }\n  ],\n  \"filters\": [\n    {\n      \"fieldId\": \"region\",\n      \"op\": \"eq\",\n      \"value\": \"east\",\n      \"sourceText\": {\n        \"start\": 7,\n        \"end\": 18,\n        \"text\": \"ฝั่่งตะวันออก\"\n      },\n      \"confidence\": 0.95\n    }\n  ],\n  \"scope\": null,\n  \"time\": {\n    \"fieldId\": \"date\",\n    \"timezone\": \"Asia/Bangkok\",\n    \"source\": \"explicit\",\n    \"sourceText\": {\n      \"start\": 20,\n      \"end\": 35,\n      \"text\": \"1 ตุลาคม 2569\"\n    },\n    \"kind\": \"date\",\n    \"date\": \"2026-03-01\"\n  },\n  \"grain\": [\n    \"branch\"\n  ],\n  \"aggregation\": \"registered\",\n  \"multiDateGrain\": null,\n  \"group\": {\n    \"fieldIds\": [\n      \"branch\"\n    ]\n  },\n  \"compare\": null,\n  \"sort\": [],\n  \"topN\": null,\n  \"completeness\": {\n    \"expectation\": \"requested_scope\",\n    \"requireFullPopulation\": false,\n    \"requiredSourceIds\": [],\n    \"minimumCoverage\": 1.0\n  },\n  \"clarificationNeeds\": [],\n  \"confidence\": 0.9,\n  \"requestedUses\": [\n    \"answer\"\n  ],\n  \"intentKind\": \"query\",\n  \"parentState\": null\n}\n```",
+    "contractPlan": {
+      "planVersion": 1,
+      "planId": "plan-2026-03-01-east-sales",
+      "datasetId": "branch_performance",
+      "measures": [
+        {
+          "fieldId": "net_sales",
+          "aggregation": "sum",
+          "interpretation": {
+            "value": "net_sales",
+            "source": "explicit",
+            "sourceText": {
+              "start": 0,
+              "end": 7,
+              "text": "ยอดขาย"
+            },
+            "confidence": 0.95
+          }
+        }
+      ],
+      "dimensions": [
+        {
+          "fieldId": "branch",
+          "interpretation": {
+            "value": "branch",
+            "source": "explicit",
+            "sourceText": {
+              "start": 7,
+              "end": 18,
+              "text": "ฝั่่งตะวันออก"
+            },
+            "confidence": 0.9
+          }
+        }
+      ],
+      "filters": [
+        {
+          "fieldId": "region",
+          "op": "eq",
+          "value": "east",
+          "sourceText": {
+            "start": 7,
+            "end": 18,
+            "text": "ฝั่่งตะวันออก"
+          },
+          "confidence": 0.95,
+          "source": "explicit",
+          "evidenceText": "ฝั่่งตะวันออก"
+        }
+      ],
+      "scope": null,
+      "time": {
+        "fieldId": "date",
+        "timezone": "Asia/Bangkok",
+        "source": "explicit",
+        "dates": [
+          "2026-03-01"
+        ],
+        "evidenceText": "1 ตุลาคม 2569"
+      },
+      "grain": [
+        "branch"
+      ],
+      "aggregation": "registered",
+      "multiDateGrain": null,
+      "group": {
+        "fieldIds": [
+          "branch"
+        ]
+      },
+      "compare": null,
+      "sort": [],
+      "topN": null,
+      "completeness": {
+        "expectation": "requested_scope",
+        "requireFullPopulation": false,
+        "requiredSourceIds": [],
+        "minimumCoverage": 1.0
+      },
+      "clarificationNeeds": [],
+      "confidence": 0.9,
+      "requestedUses": [
+        "answer"
+      ],
+      "intentKind": "query",
+      "parentState": null
+    }
+  },
+  {
+    "message": "East region net sales vs target on 1 Oct 2026",
+    "raw": "```json\n{\n  \"planVersion\": 1,\n  \"planId\": \"plan-2026-10-01-east-net-sales-vs-target\",\n  \"datasetId\": \"branch_performance\",\n  \"measures\": [\n    {\n      \"fieldId\": \"net_sales\",\n      \"aggregation\": \"sum\",\n      \"interpretation\": {\n        \"value\": \"net_sales\",\n        \"source\": \"explicit\",\n        \"sourceText\": {\n          \"start\": 12,\n          \"end\": 21,\n          \"text\": \"net sales\"\n        },\n        \"confidence\": 1.0\n      }\n    },\n    {\n      \"fieldId\": \"target\",\n      \"aggregation\": \"sum\",\n      \"interpretation\": {\n        \"value\": \"target\",\n        \"source\": \"explicit\",\n        \"sourceText\": {\n          \"start\": 25,\n          \"end\": 31,\n          \"text\": \"target\"\n        },\n        \"confidence\": 1.0\n      }\n    }\n  ],\n  \"dimensions\": [\n    {\n      \"fieldId\": \"region\",\n      \"interpretation\": {\n        \"value\": \"east\",\n        \"source\": \"explicit\",\n        \"sourceText\": {\n          \"start\": 0,\n          \"end\": 4,\n          \"text\": \"East\"\n        },\n        \"confidence\": 1.0\n      }\n    }\n  ],\n  \"filters\": [\n    {\n      \"fieldId\": \"region\",\n      \"op\": \"eq\",\n      \"value\": \"east\",\n      \"sourceText\": {\n        \"start\": 0,\n        \"end\": 4,\n        \"text\": \"East\"\n      },\n      \"confidence\": 1.0\n    }\n  ],\n  \"scope\": null,\n  \"time\": {\n    \"fieldId\": \"date\",\n    \"timezone\": \"Asia/Bangkok\",\n    \"source\": \"explicit\",\n    \"sourceText\": {\n      \"start\": 35,\n      \"end\": 46,\n      \"text\": \"1 Oct 2026\"\n    },\n    \"kind\": \"date\",\n    \"date\": \"2026-10-01\"\n  },\n  \"grain\": [\n    \"region\",\n    \"date\"\n  ],\n  \"aggregation\": \"registered\",\n  \"multiDateGrain\": null,\n  \"group\": {\n    \"fieldIds\": [\n      \"region\",\n      \"date\"\n    ]\n  },\n  \"compare\": {\n    \"kind\": \"vs_target\",\n    \"period\": null,\n    \"baseline\": null,\n    \"sourceText\": {\n      \"start\": 22,\n      \"end\": 31,\n      \"text\": \"vs target\"\n    },\n    \"confidence\": 1.0\n  },\n  \"sort\": [],\n  \"topN\": null,\n  \"completeness\": {\n    \"expectation\": \"requested_scope\",\n    \"requireFullPopulation\": false,\n    \"requiredSourceIds\": [],\n    \"minimumCoverage\": 1.0\n  },\n  \"clarificationNeeds\": [],\n  \"confidence\": 1.0,\n  \"requestedUses\": [\n    \"answer\"\n  ],\n  \"intentKind\": \"query\",\n  \"parentState\": null\n}\n```",
+    "contractPlan": {
+      "planVersion": 1,
+      "planId": "plan-2026-10-01-east-net-sales-vs-target",
+      "datasetId": "branch_performance",
+      "measures": [
+        {
+          "fieldId": "net_sales",
+          "aggregation": "sum",
+          "interpretation": {
+            "value": "net_sales",
+            "source": "explicit",
+            "sourceText": {
+              "start": 12,
+              "end": 21,
+              "text": "net sales"
+            },
+            "confidence": 1.0
+          }
+        },
+        {
+          "fieldId": "target",
+          "aggregation": "sum",
+          "interpretation": {
+            "value": "target",
+            "source": "explicit",
+            "sourceText": {
+              "start": 25,
+              "end": 31,
+              "text": "target"
+            },
+            "confidence": 1.0
+          }
+        }
+      ],
+      "dimensions": [
+        {
+          "fieldId": "region",
+          "interpretation": {
+            "value": "east",
+            "source": "explicit",
+            "sourceText": {
+              "start": 0,
+              "end": 4,
+              "text": "East"
+            },
+            "confidence": 1.0
+          }
+        }
+      ],
+      "filters": [
+        {
+          "fieldId": "region",
+          "op": "eq",
+          "value": "east",
+          "sourceText": {
+            "start": 0,
+            "end": 4,
+            "text": "East"
+          },
+          "confidence": 1.0,
+          "source": "explicit",
+          "evidenceText": "East"
+        }
+      ],
+      "scope": null,
+      "time": {
+        "fieldId": "date",
+        "timezone": "Asia/Bangkok",
+        "source": "explicit",
+        "dates": [
+          "2026-10-01"
+        ],
+        "evidenceText": "1 Oct 2026"
+      },
+      "grain": [
+        "region",
+        "date"
+      ],
+      "aggregation": "registered",
+      "multiDateGrain": null,
+      "group": {
+        "fieldIds": [
+          "region",
+          "date"
+        ]
+      },
+      "compare": {
+        "kind": "vs_target",
+        "period": null,
+        "baseline": null,
+        "sourceText": {
+          "start": 22,
+          "end": 31,
+          "text": "vs target"
+        },
+        "confidence": 1.0
+      },
+      "sort": [],
+      "topN": null,
+      "completeness": {
+        "expectation": "requested_scope",
+        "requireFullPopulation": false,
+        "requiredSourceIds": [],
+        "minimumCoverage": 1.0
+      },
+      "clarificationNeeds": [],
+      "confidence": 1.0,
+      "requestedUses": [
+        "answer"
+      ],
+      "intentKind": "query",
+      "parentState": null
+    }
+  },
+  {
+    "message": "ยอดขายรวมวันที่ 1 ตุลาคม 2569",
+    "raw": "```json\n{\n  \"planVersion\": 1,\n  \"planId\": \"plan-2026-10-01-net-sales\",\n  \"datasetId\": \"branch_performance\",\n  \"measures\": [\n    {\n      \"fieldId\": \"net_sales\",\n      \"aggregation\": \"sum\",\n      \"interpretation\": {\n        \"value\": \"sum\",\n        \"source\": \"explicit\",\n        \"sourceText\": {\n          \"start\": 0,\n          \"end\": 5,\n          \"text\": \"ยอดขายรวม\"\n        },\n        \"confidence\": 0.95\n      }\n    }\n  ],\n  \"dimensions\": [\n    {\n      \"fieldId\": \"branch\",\n      \"interpretation\": {\n        \"value\": \"branch\",\n        \"source\": \"default\",\n        \"sourceText\": null,\n        \"confidence\": 1.0\n      }\n    }\n  ],\n  \"filters\": [],\n  \"scope\": null,\n  \"time\": {\n    \"fieldId\": \"date\",\n    \"timezone\": \"Asia/Bangkok\",\n    \"source\": \"explicit\",\n    \"sourceText\": {\n      \"start\": 6,\n      \"end\": 20,\n      \"text\": \"วันที่ 1 ตุลาคม 2569\"\n    },\n    \"kind\": \"date\",\n    \"date\": \"2026-10-01\"\n  },\n  \"grain\": [\n    \"branch\",\n    \"date\"\n  ],\n  \"aggregation\": \"registered\",\n  \"multiDateGrain\": null,\n  \"group\": {\n    \"fieldIds\": [\n      \"branch\"\n    ]\n  },\n  \"compare\": null,\n  \"sort\": [],\n  \"topN\": null,\n  \"completeness\": {\n    \"expectation\": \"requested_scope\",\n    \"requireFullPopulation\": false,\n    \"requiredSourceIds\": [],\n    \"minimumCoverage\": 0\n  },\n  \"clarificationNeeds\": [],\n  \"confidence\": 0.95,\n  \"requestedUses\": [\n    \"answer\"\n  ],\n  \"intentKind\": \"query\",\n  \"parentState\": null\n}\n```",
+    "contractPlan": {
+      "planVersion": 1,
+      "planId": "plan-2026-10-01-net-sales",
+      "datasetId": "branch_performance",
+      "measures": [
+        {
+          "fieldId": "net_sales",
+          "aggregation": "sum",
+          "interpretation": {
+            "value": "sum",
+            "source": "explicit",
+            "sourceText": {
+              "start": 0,
+              "end": 5,
+              "text": "ยอดขายรวม"
+            },
+            "confidence": 0.95
+          }
+        }
+      ],
+      "dimensions": [
+        {
+          "fieldId": "branch",
+          "interpretation": {
+            "value": "branch",
+            "source": "default",
+            "sourceText": null,
+            "confidence": 1.0
+          }
+        }
+      ],
+      "filters": [],
+      "scope": null,
+      "time": {
+        "fieldId": "date",
+        "timezone": "Asia/Bangkok",
+        "source": "explicit",
+        "dates": [
+          "2026-10-01"
+        ],
+        "evidenceText": "วันที่ 1 ตุลาคม 2569"
+      },
+      "grain": [
+        "branch",
+        "date"
+      ],
+      "aggregation": "registered",
+      "multiDateGrain": null,
+      "group": {
+        "fieldIds": [
+          "branch"
+        ]
+      },
+      "compare": null,
+      "sort": [],
+      "topN": null,
+      "completeness": {
+        "expectation": "requested_scope",
+        "requireFullPopulation": false,
+        "requiredSourceIds": [],
+        "minimumCoverage": 0
+      },
+      "clarificationNeeds": [],
+      "confidence": 0.95,
+      "requestedUses": [
+        "answer"
+      ],
+      "intentKind": "query",
+      "parentState": null
+    }
+  },
+  {
+    "message": "ยอดขายสาขา E01 วันที่ 1 ตุลาคม 2569",
+    "raw": "```json\n{\n  \"planVersion\": 1,\n  \"planId\": \"plan-2026-10-01-e01\",\n  \"datasetId\": \"branch_performance\",\n  \"measures\": [\n    {\n      \"fieldId\": \"net_sales\",\n      \"aggregation\": \"sum\",\n      \"interpretation\": {\n        \"value\": \"net_sales\",\n        \"source\": \"explicit\",\n        \"sourceText\": {\n          \"start\": 0,\n          \"end\": 5,\n          \"text\": \"ยอดขาย\"\n        },\n        \"confidence\": 0.95\n      }\n    }\n  ],\n  \"dimensions\": [\n    {\n      \"fieldId\": \"branch\",\n      \"interpretation\": {\n        \"value\": \"E01\",\n        \"source\": \"explicit\",\n        \"sourceText\": {\n          \"start\": 6,\n          \"end\": 9,\n          \"text\": \"E01\"\n        },\n        \"confidence\": 0.99\n      }\n    }\n  ],\n  \"filters\": [\n    {\n      \"fieldId\": \"branch\",\n      \"op\": \"eq\",\n      \"value\": \"E01\",\n      \"sourceText\": {\n        \"start\": 6,\n        \"end\": 9,\n        \"text\": \"E01\"\n      },\n      \"confidence\": 0.99\n    }\n  ],\n  \"scope\": null,\n  \"time\": {\n    \"fieldId\": \"date\",\n    \"timezone\": \"Asia/Bangkok\",\n    \"source\": \"explicit\",\n    \"sourceText\": {\n      \"start\": 10,\n      \"end\": 24,\n      \"text\": \"วันที่ 1 ตุลาคม 2569\"\n    },\n    \"kind\": \"date\",\n    \"date\": \"2026-10-01\"\n  },\n  \"grain\": [\n    \"branch\",\n    \"date\"\n  ],\n  \"aggregation\": \"registered\",\n  \"multiDateGrain\": null,\n  \"group\": {\n    \"fieldIds\": [\n      \"branch\",\n      \"date\"\n    ]\n  },\n  \"compare\": null,\n  \"sort\": [],\n  \"topN\": null,\n  \"completeness\": {\n    \"expectation\": \"requested_scope\",\n    \"requireFullPopulation\": false,\n    \"requiredSourceIds\": [],\n    \"minimumCoverage\": 1.0\n  },\n  \"clarificationNeeds\": [],\n  \"confidence\": 0.95,\n  \"requestedUses\": [\n    \"answer\"\n  ],\n  \"intentKind\": \"query\",\n  \"parentState\": null\n}\n```",
+    "contractPlan": {
+      "planVersion": 1,
+      "planId": "plan-2026-10-01-e01",
+      "datasetId": "branch_performance",
+      "measures": [
+        {
+          "fieldId": "net_sales",
+          "aggregation": "sum",
+          "interpretation": {
+            "value": "net_sales",
+            "source": "explicit",
+            "sourceText": {
+              "start": 0,
+              "end": 5,
+              "text": "ยอดขาย"
+            },
+            "confidence": 0.95
+          }
+        }
+      ],
+      "dimensions": [
+        {
+          "fieldId": "branch",
+          "interpretation": {
+            "value": "E01",
+            "source": "explicit",
+            "sourceText": {
+              "start": 6,
+              "end": 9,
+              "text": "E01"
+            },
+            "confidence": 0.99
+          }
+        }
+      ],
+      "filters": [
+        {
+          "fieldId": "branch",
+          "op": "eq",
+          "value": "E01",
+          "sourceText": {
+            "start": 6,
+            "end": 9,
+            "text": "E01"
+          },
+          "confidence": 0.99,
+          "source": "explicit",
+          "evidenceText": "E01"
+        }
+      ],
+      "scope": null,
+      "time": {
+        "fieldId": "date",
+        "timezone": "Asia/Bangkok",
+        "source": "explicit",
+        "dates": [
+          "2026-10-01"
+        ],
+        "evidenceText": "วันที่ 1 ตุลาคม 2569"
+      },
+      "grain": [
+        "branch",
+        "date"
+      ],
+      "aggregation": "registered",
+      "multiDateGrain": null,
+      "group": {
+        "fieldIds": [
+          "branch",
+          "date"
+        ]
+      },
+      "compare": null,
+      "sort": [],
+      "topN": null,
+      "completeness": {
+        "expectation": "requested_scope",
+        "requireFullPopulation": false,
+        "requiredSourceIds": [],
+        "minimumCoverage": 1.0
+      },
+      "clarificationNeeds": [],
+      "confidence": 0.95,
+      "requestedUses": [
+        "answer"
+      ],
+      "intentKind": "query",
+      "parentState": null
+    }
+  },
+  {
+    "message": "May I see E01 sales?",
+    "raw": "```json\n{\n  \"planVersion\": 1,\n  \"planId\": \"plan-e01-sales-001\",\n  \"datasetId\": \"branch_performance\",\n  \"measures\": [\n    {\n      \"fieldId\": \"net_sales\",\n      \"aggregation\": \"sum\",\n      \"interpretation\": {\n        \"value\": \"net_sales\",\n        \"source\": \"explicit\",\n        \"sourceText\": {\n          \"start\": 10,\n          \"end\": 15,\n          \"text\": \"sales\"\n        },\n        \"confidence\": 0.95\n      }\n    }\n  ],\n  \"dimensions\": [\n    {\n      \"fieldId\": \"branch\",\n      \"interpretation\": {\n        \"value\": \"branch\",\n        \"source\": \"explicit\",\n        \"sourceText\": {\n          \"start\": 10,\n          \"end\": 13,\n          \"text\": \"E01\"\n        },\n        \"confidence\": 0.98\n      }\n    }\n  ],\n  \"filters\": [\n    {\n      \"fieldId\": \"branch\",\n      \"op\": \"eq\",\n      \"value\": \"E01\",\n      \"sourceText\": {\n        \"start\": 10,\n        \"end\": 13,\n        \"text\": \"E01\"\n      },\n      \"confidence\": 0.98\n    }\n  ],\n  \"scope\": null,\n  \"time\": {\n    \"fieldId\": \"date\",\n    \"timezone\": \"Asia/Bangkok\",\n    \"source\": \"default\",\n    \"sourceText\": null,\n    \"kind\": \"date\",\n    \"date\": \"2023-10-27\"\n  },\n  \"grain\": [\n    \"branch\",\n    \"date\"\n  ],\n  \"aggregation\": \"registered\",\n  \"multiDateGrain\": null,\n  \"group\": {\n    \"fieldIds\": [\n      \"branch\",\n      \"date\"\n    ]\n  },\n  \"compare\": null,\n  \"sort\": [],\n  \"topN\": null,\n  \"completeness\": {\n    \"expectation\": \"requested_scope\",\n    \"requireFullPopulation\": false,\n    \"requiredSourceIds\": [],\n    \"minimumCoverage\": 1.0\n  },\n  \"clarificationNeeds\": [],\n  \"confidence\": 0.95,\n  \"requestedUses\": [\n    \"answer\"\n  ],\n  \"intentKind\": \"query\",\n  \"parentState\": null\n}\n```",
+    "contractPlan": {
+      "planVersion": 1,
+      "planId": "plan-e01-sales-001",
+      "datasetId": "branch_performance",
+      "measures": [
+        {
+          "fieldId": "net_sales",
+          "aggregation": "sum",
+          "interpretation": {
+            "value": "net_sales",
+            "source": "explicit",
+            "sourceText": {
+              "start": 10,
+              "end": 15,
+              "text": "sales"
+            },
+            "confidence": 0.95
+          }
+        }
+      ],
+      "dimensions": [
+        {
+          "fieldId": "branch",
+          "interpretation": {
+            "value": "branch",
+            "source": "explicit",
+            "sourceText": {
+              "start": 10,
+              "end": 13,
+              "text": "E01"
+            },
+            "confidence": 0.98
+          }
+        }
+      ],
+      "filters": [
+        {
+          "fieldId": "branch",
+          "op": "eq",
+          "value": "E01",
+          "sourceText": {
+            "start": 10,
+            "end": 13,
+            "text": "E01"
+          },
+          "confidence": 0.98,
+          "source": "explicit",
+          "evidenceText": "E01"
+        }
+      ],
+      "scope": null,
+      "time": {
+        "fieldId": "date",
+        "timezone": "Asia/Bangkok",
+        "source": "default",
+        "dates": [
+          "2023-10-27"
+        ]
+      },
+      "grain": [
+        "branch",
+        "date"
+      ],
+      "aggregation": "registered",
+      "multiDateGrain": null,
+      "group": {
+        "fieldIds": [
+          "branch",
+          "date"
+        ]
+      },
+      "compare": null,
+      "sort": [],
+      "topN": null,
+      "completeness": {
+        "expectation": "requested_scope",
+        "requireFullPopulation": false,
+        "requiredSourceIds": [],
+        "minimumCoverage": 1.0
+      },
+      "clarificationNeeds": [],
+      "confidence": 0.95,
+      "requestedUses": [
+        "answer"
+      ],
+      "intentKind": "query",
+      "parentState": null
+    }
+  },
+  {
+    "message": "ขอดูยอดขายฝั่งตะวันออกทั้งหมด วันที่ 1 ตุลาคม 2569",
+    "raw": "```json\n{\n  \"planVersion\": 1,\n  \"planId\": \"plan-2026-03-01-east-sales\",\n  \"datasetId\": \"branch_performance\",\n  \"measures\": [\n    {\n      \"fieldId\": \"net_sales\",\n      \"aggregation\": \"sum\",\n      \"interpretation\": {\n        \"value\": \"net_sales\",\n        \"source\": \"explicit\",\n        \"sourceText\": {\n          \"start\": 0,\n          \"end\": 7,\n          \"text\": \"ยอดขาย\"\n        },\n        \"confidence\": 0.95\n      }\n    }\n  ],\n  \"dimensions\": [\n    {\n      \"fieldId\": \"branch\",\n      \"interpretation\": {\n        \"value\": \"branch\",\n        \"source\": \"explicit\",\n        \"sourceText\": {\n          \"start\": 7,\n          \"end\": 15,\n          \"text\": \"ฝั่่งตะว\"\n        },\n        \"confidence\": 0.9\n      }\n    }\n  ],\n  \"filters\": [\n    {\n      \"fieldId\": \"region\",\n      \"op\": \"eq\",\n      \"value\": \"east\",\n      \"sourceText\": {\n        \"start\": 7,\n        \"end\": 15,\n        \"text\": \"ฝั่่งตะว\"\n      },\n      \"confidence\": 0.95\n    }\n  ],\n  \"scope\": null,\n  \"time\": {\n    \"fieldId\": \"date\",\n    \"timezone\": \"Asia/Bangkok\",\n    \"source\": \"explicit\",\n    \"sourceText\": {\n      \"start\": 16,\n      \"end\": 30,\n      \"text\": \"1 ตุลาคม 2569\"\n    },\n    \"kind\": \"date\",\n    \"date\": \"2026-03-01\"\n  },\n  \"grain\": [\n    \"branch\"\n  ],\n  \"aggregation\": \"registered\",\n  \"multiDateGrain\": null,\n  \"group\": {\n    \"fieldIds\": [\n      \"branch\"\n    ]\n  },\n  \"compare\": null,\n  \"sort\": [],\n  \"topN\": null,\n  \"completeness\": {\n    \"expectation\": \"requested_scope\",\n    \"requireFullPopulation\": false,\n    \"requiredSourceIds\": [],\n    \"minimumCoverage\": 1.0\n  },\n  \"clarificationNeeds\": [],\n  \"confidence\": 0.9,\n  \"requestedUses\": [\n    \"answer\"\n  ],\n  \"intentKind\": \"query\",\n  \"parentState\": null\n}\n```",
+    "contractPlan": {
+      "planVersion": 1,
+      "planId": "plan-2026-03-01-east-sales",
+      "datasetId": "branch_performance",
+      "measures": [
+        {
+          "fieldId": "net_sales",
+          "aggregation": "sum",
+          "interpretation": {
+            "value": "net_sales",
+            "source": "explicit",
+            "sourceText": {
+              "start": 0,
+              "end": 7,
+              "text": "ยอดขาย"
+            },
+            "confidence": 0.95
+          }
+        }
+      ],
+      "dimensions": [
+        {
+          "fieldId": "branch",
+          "interpretation": {
+            "value": "branch",
+            "source": "explicit",
+            "sourceText": {
+              "start": 7,
+              "end": 15,
+              "text": "ฝั่่งตะว"
+            },
+            "confidence": 0.9
+          }
+        }
+      ],
+      "filters": [
+        {
+          "fieldId": "region",
+          "op": "eq",
+          "value": "east",
+          "sourceText": {
+            "start": 7,
+            "end": 15,
+            "text": "ฝั่่งตะว"
+          },
+          "confidence": 0.95,
+          "source": "explicit",
+          "evidenceText": "ฝั่่งตะว"
+        }
+      ],
+      "scope": null,
+      "time": {
+        "fieldId": "date",
+        "timezone": "Asia/Bangkok",
+        "source": "explicit",
+        "dates": [
+          "2026-03-01"
+        ],
+        "evidenceText": "1 ตุลาคม 2569"
+      },
+      "grain": [
+        "branch"
+      ],
+      "aggregation": "registered",
+      "multiDateGrain": null,
+      "group": {
+        "fieldIds": [
+          "branch"
+        ]
+      },
+      "compare": null,
+      "sort": [],
+      "topN": null,
+      "completeness": {
+        "expectation": "requested_scope",
+        "requireFullPopulation": false,
+        "requiredSourceIds": [],
+        "minimumCoverage": 1.0
+      },
+      "clarificationNeeds": [],
+      "confidence": 0.9,
+      "requestedUses": [
+        "answer"
+      ],
+      "intentKind": "query",
+      "parentState": null
+    }
+  },
+  {
+    "message": "East region net sales vs target on 1 Oct 2026",
+    "raw": "```json\n{\n  \"planVersion\": 1,\n  \"planId\": \"plan-2026-10-01-east-net-sales-vs-target\",\n  \"datasetId\": \"branch_performance\",\n  \"measures\": [\n    {\n      \"fieldId\": \"net_sales\",\n      \"aggregation\": \"sum\",\n      \"interpretation\": {\n        \"value\": \"net_sales\",\n        \"source\": \"explicit\",\n        \"sourceText\": {\n          \"start\": 12,\n          \"end\": 21,\n          \"text\": \"net sales\"\n        },\n        \"confidence\": 1.0\n      }\n    },\n    {\n      \"fieldId\": \"target\",\n      \"aggregation\": \"sum\",\n      \"interpretation\": {\n        \"value\": \"target\",\n        \"source\": \"explicit\",\n        \"sourceText\": {\n          \"start\": 25,\n          \"end\": 31,\n          \"text\": \"target\"\n        },\n        \"confidence\": 1.0\n      }\n    }\n  ],\n  \"dimensions\": [\n    {\n      \"fieldId\": \"region\",\n      \"interpretation\": {\n        \"value\": \"east\",\n        \"source\": \"explicit\",\n        \"sourceText\": {\n          \"start\": 0,\n          \"end\": 4,\n          \"text\": \"East\"\n        },\n        \"confidence\": 1.0\n      }\n    }\n  ],\n  \"filters\": [\n    {\n      \"fieldId\": \"region\",\n      \"op\": \"eq\",\n      \"value\": \"east\",\n      \"sourceText\": {\n        \"start\": 0,\n        \"end\": 4,\n        \"text\": \"East\"\n      },\n      \"confidence\": 1.0\n    }\n  ],\n  \"scope\": null,\n  \"time\": {\n    \"fieldId\": \"date\",\n    \"timezone\": \"Asia/Bangkok\",\n    \"source\": \"explicit\",\n    \"sourceText\": {\n      \"start\": 35,\n      \"end\": 46,\n      \"text\": \"1 Oct 2026\"\n    },\n    \"kind\": \"date\",\n    \"date\": \"2026-10-01\"\n  },\n  \"grain\": [\n    \"region\",\n    \"date\"\n  ],\n  \"aggregation\": \"registered\",\n  \"multiDateGrain\": null,\n  \"group\": {\n    \"fieldIds\": [\n      \"region\",\n      \"date\"\n    ]\n  },\n  \"compare\": {\n    \"kind\": \"vs_target\",\n    \"period\": null,\n    \"baseline\": null,\n    \"sourceText\": {\n      \"start\": 22,\n      \"end\": 31,\n      \"text\": \"vs target\"\n    },\n    \"confidence\": 1.0\n  },\n  \"sort\": [],\n  \"topN\": null,\n  \"completeness\": {\n    \"expectation\": \"requested_scope\",\n    \"requireFullPopulation\": false,\n    \"requiredSourceIds\": [],\n    \"minimumCoverage\": 1.0\n  },\n  \"clarificationNeeds\": [],\n  \"confidence\": 1.0,\n  \"requestedUses\": [\n    \"answer\"\n  ],\n  \"intentKind\": \"query\",\n  \"parentState\": null\n}\n```",
+    "contractPlan": {
+      "planVersion": 1,
+      "planId": "plan-2026-10-01-east-net-sales-vs-target",
+      "datasetId": "branch_performance",
+      "measures": [
+        {
+          "fieldId": "net_sales",
+          "aggregation": "sum",
+          "interpretation": {
+            "value": "net_sales",
+            "source": "explicit",
+            "sourceText": {
+              "start": 12,
+              "end": 21,
+              "text": "net sales"
+            },
+            "confidence": 1.0
+          }
+        },
+        {
+          "fieldId": "target",
+          "aggregation": "sum",
+          "interpretation": {
+            "value": "target",
+            "source": "explicit",
+            "sourceText": {
+              "start": 25,
+              "end": 31,
+              "text": "target"
+            },
+            "confidence": 1.0
+          }
+        }
+      ],
+      "dimensions": [
+        {
+          "fieldId": "region",
+          "interpretation": {
+            "value": "east",
+            "source": "explicit",
+            "sourceText": {
+              "start": 0,
+              "end": 4,
+              "text": "East"
+            },
+            "confidence": 1.0
+          }
+        }
+      ],
+      "filters": [
+        {
+          "fieldId": "region",
+          "op": "eq",
+          "value": "east",
+          "sourceText": {
+            "start": 0,
+            "end": 4,
+            "text": "East"
+          },
+          "confidence": 1.0,
+          "source": "explicit",
+          "evidenceText": "East"
+        }
+      ],
+      "scope": null,
+      "time": {
+        "fieldId": "date",
+        "timezone": "Asia/Bangkok",
+        "source": "explicit",
+        "dates": [
+          "2026-10-01"
+        ],
+        "evidenceText": "1 Oct 2026"
+      },
+      "grain": [
+        "region",
+        "date"
+      ],
+      "aggregation": "registered",
+      "multiDateGrain": null,
+      "group": {
+        "fieldIds": [
+          "region",
+          "date"
+        ]
+      },
+      "compare": {
+        "kind": "vs_target",
+        "period": null,
+        "baseline": null,
+        "sourceText": {
+          "start": 22,
+          "end": 31,
+          "text": "vs target"
+        },
+        "confidence": 1.0
+      },
+      "sort": [],
+      "topN": null,
+      "completeness": {
+        "expectation": "requested_scope",
+        "requireFullPopulation": false,
+        "requiredSourceIds": [],
+        "minimumCoverage": 1.0
+      },
+      "clarificationNeeds": [],
+      "confidence": 1.0,
+      "requestedUses": [
+        "answer"
+      ],
+      "intentKind": "query",
+      "parentState": null
+    }
+  },
+  {
+    "message": "ยอดขายรวมวันที่ 1 ตุลาคม 2569",
+    "raw": "```json\n{\n  \"planVersion\": 1,\n  \"planId\": \"plan-2026-10-01-net-sales\",\n  \"datasetId\": \"branch_performance\",\n  \"measures\": [\n    {\n      \"fieldId\": \"net_sales\",\n      \"aggregation\": \"sum\",\n      \"interpretation\": {\n        \"value\": \"net_sales\",\n        \"source\": \"explicit\",\n        \"sourceText\": {\n          \"start\": 0,\n          \"end\": 10,\n          \"text\": \"ยอดขายรวม\"\n        },\n        \"confidence\": 0.95\n      }\n    }\n  ],\n  \"dimensions\": [\n    {\n      \"fieldId\": \"branch\",\n      \"interpretation\": {\n        \"value\": \"branch\",\n        \"source\": \"default\",\n        \"sourceText\": null,\n        \"confidence\": 1.0\n      }\n    }\n  ],\n  \"filters\": [],\n  \"scope\": null,\n  \"time\": {\n    \"fieldId\": \"date\",\n    \"timezone\": \"Asia/Bangkok\",\n    \"source\": \"explicit\",\n    \"sourceText\": {\n      \"start\": 11,\n      \"end\": 25,\n      \"text\": \"วันที่ 1 ตุลาคม 2569\"\n    },\n    \"kind\": \"date\",\n    \"date\": \"2026-10-01\"\n  },\n  \"grain\": [\n    \"branch\",\n    \"date\"\n  ],\n  \"aggregation\": \"registered\",\n  \"multiDateGrain\": null,\n  \"group\": {\n    \"fieldIds\": [\n      \"branch\"\n    ]\n  },\n  \"compare\": null,\n  \"sort\": [],\n  \"topN\": null,\n  \"completeness\": {\n    \"expectation\": \"requested_scope\",\n    \"requireFullPopulation\": false,\n    \"requiredSourceIds\": [],\n    \"minimumCoverage\": 0\n  },\n  \"clarificationNeeds\": [],\n  \"confidence\": 0.95,\n  \"requestedUses\": [\n    \"answer\"\n  ],\n  \"intentKind\": \"query\",\n  \"parentState\": null\n}\n```",
+    "contractPlan": {
+      "planVersion": 1,
+      "planId": "plan-2026-10-01-net-sales",
+      "datasetId": "branch_performance",
+      "measures": [
+        {
+          "fieldId": "net_sales",
+          "aggregation": "sum",
+          "interpretation": {
+            "value": "net_sales",
+            "source": "explicit",
+            "sourceText": {
+              "start": 0,
+              "end": 10,
+              "text": "ยอดขายรวม"
+            },
+            "confidence": 0.95
+          }
+        }
+      ],
+      "dimensions": [
+        {
+          "fieldId": "branch",
+          "interpretation": {
+            "value": "branch",
+            "source": "default",
+            "sourceText": null,
+            "confidence": 1.0
+          }
+        }
+      ],
+      "filters": [],
+      "scope": null,
+      "time": {
+        "fieldId": "date",
+        "timezone": "Asia/Bangkok",
+        "source": "explicit",
+        "dates": [
+          "2026-10-01"
+        ],
+        "evidenceText": "วันที่ 1 ตุลาคม 2569"
+      },
+      "grain": [
+        "branch",
+        "date"
+      ],
+      "aggregation": "registered",
+      "multiDateGrain": null,
+      "group": {
+        "fieldIds": [
+          "branch"
+        ]
+      },
+      "compare": null,
+      "sort": [],
+      "topN": null,
+      "completeness": {
+        "expectation": "requested_scope",
+        "requireFullPopulation": false,
+        "requiredSourceIds": [],
+        "minimumCoverage": 0
+      },
+      "clarificationNeeds": [],
+      "confidence": 0.95,
+      "requestedUses": [
+        "answer"
+      ],
+      "intentKind": "query",
+      "parentState": null
+    }
+  },
+  {
+    "message": "ยอดขายสาขา E01 วันที่ 1 ตุลาคม 2569",
+    "raw": "```json\n{\n  \"planVersion\": 1,\n  \"planId\": \"plan-2026-10-01-e01\",\n  \"datasetId\": \"branch_performance\",\n  \"measures\": [\n    {\n      \"fieldId\": \"net_sales\",\n      \"aggregation\": \"sum\",\n      \"interpretation\": {\n        \"value\": \"net_sales\",\n        \"source\": \"explicit\",\n        \"sourceText\": {\n          \"start\": 0,\n          \"end\": 5,\n          \"text\": \"ยอดขาย\"\n        },\n        \"confidence\": 0.95\n      }\n    }\n  ],\n  \"dimensions\": [\n    {\n      \"fieldId\": \"branch\",\n      \"interpretation\": {\n        \"value\": \"E01\",\n        \"source\": \"explicit\",\n        \"sourceText\": {\n          \"start\": 6,\n          \"end\": 9,\n          \"text\": \"E01\"\n        },\n        \"confidence\": 0.99\n      }\n    }\n  ],\n  \"filters\": [\n    {\n      \"fieldId\": \"branch\",\n      \"op\": \"eq\",\n      \"value\": \"E01\",\n      \"sourceText\": {\n        \"start\": 6,\n        \"end\": 9,\n        \"text\": \"E01\"\n      },\n      \"confidence\": 0.99\n    }\n  ],\n  \"scope\": null,\n  \"time\": {\n    \"fieldId\": \"date\",\n    \"timezone\": \"Asia/Bangkok\",\n    \"source\": \"explicit\",\n    \"sourceText\": {\n      \"start\": 10,\n      \"end\": 24,\n      \"text\": \"วันที่ 1 ตุลาคม 2569\"\n    },\n    \"kind\": \"date\",\n    \"date\": \"2026-10-01\"\n  },\n  \"grain\": [\n    \"branch\",\n    \"date\"\n  ],\n  \"aggregation\": \"registered\",\n  \"multiDateGrain\": null,\n  \"group\": {\n    \"fieldIds\": [\n      \"branch\"\n    ]\n  },\n  \"compare\": null,\n  \"sort\": [],\n  \"topN\": null,\n  \"completeness\": {\n    \"expectation\": \"requested_scope\",\n    \"requireFullPopulation\": false,\n    \"requiredSourceIds\": [],\n    \"minimumCoverage\": 1.0\n  },\n  \"clarificationNeeds\": [],\n  \"confidence\": 0.95,\n  \"requestedUses\": [\n    \"answer\"\n  ],\n  \"intentKind\": \"query\",\n  \"parentState\": null\n}\n```",
+    "contractPlan": {
+      "planVersion": 1,
+      "planId": "plan-2026-10-01-e01",
+      "datasetId": "branch_performance",
+      "measures": [
+        {
+          "fieldId": "net_sales",
+          "aggregation": "sum",
+          "interpretation": {
+            "value": "net_sales",
+            "source": "explicit",
+            "sourceText": {
+              "start": 0,
+              "end": 5,
+              "text": "ยอดขาย"
+            },
+            "confidence": 0.95
+          }
+        }
+      ],
+      "dimensions": [
+        {
+          "fieldId": "branch",
+          "interpretation": {
+            "value": "E01",
+            "source": "explicit",
+            "sourceText": {
+              "start": 6,
+              "end": 9,
+              "text": "E01"
+            },
+            "confidence": 0.99
+          }
+        }
+      ],
+      "filters": [
+        {
+          "fieldId": "branch",
+          "op": "eq",
+          "value": "E01",
+          "sourceText": {
+            "start": 6,
+            "end": 9,
+            "text": "E01"
+          },
+          "confidence": 0.99,
+          "source": "explicit",
+          "evidenceText": "E01"
+        }
+      ],
+      "scope": null,
+      "time": {
+        "fieldId": "date",
+        "timezone": "Asia/Bangkok",
+        "source": "explicit",
+        "dates": [
+          "2026-10-01"
+        ],
+        "evidenceText": "วันที่ 1 ตุลาคม 2569"
+      },
+      "grain": [
+        "branch",
+        "date"
+      ],
+      "aggregation": "registered",
+      "multiDateGrain": null,
+      "group": {
+        "fieldIds": [
+          "branch"
+        ]
+      },
+      "compare": null,
+      "sort": [],
+      "topN": null,
+      "completeness": {
+        "expectation": "requested_scope",
+        "requireFullPopulation": false,
+        "requiredSourceIds": [],
+        "minimumCoverage": 1.0
+      },
+      "clarificationNeeds": [],
+      "confidence": 0.95,
+      "requestedUses": [
+        "answer"
+      ],
+      "intentKind": "query",
+      "parentState": null
+    }
+  },
+  {
+    "message": "May I see E01 sales?",
+    "raw": "```json\n{\n  \"planVersion\": 1,\n  \"planId\": \"plan-e01-sales-001\",\n  \"datasetId\": \"branch_performance\",\n  \"measures\": [\n    {\n      \"fieldId\": \"net_sales\",\n      \"aggregation\": \"sum\",\n      \"interpretation\": {\n        \"value\": \"net_sales\",\n        \"source\": \"explicit\",\n        \"sourceText\": {\n          \"start\": 11,\n          \"end\": 16,\n          \"text\": \"sales\"\n        },\n        \"confidence\": 0.95\n      }\n    }\n  ],\n  \"dimensions\": [\n    {\n      \"fieldId\": \"branch\",\n      \"interpretation\": {\n        \"value\": \"branch\",\n        \"source\": \"explicit\",\n        \"sourceText\": {\n          \"start\": 9,\n          \"end\": 12,\n          \"text\": \"E01\"\n        },\n        \"confidence\": 0.99\n      }\n    }\n  ],\n  \"filters\": [\n    {\n      \"fieldId\": \"branch\",\n      \"op\": \"eq\",\n      \"value\": \"E01\",\n      \"sourceText\": {\n        \"start\": 9,\n        \"end\": 12,\n        \"text\": \"E01\"\n      },\n      \"confidence\": 0.99\n    }\n  ],\n  \"scope\": null,\n  \"time\": {\n    \"fieldId\": \"date\",\n    \"timezone\": \"Asia/Bangkok\",\n    \"source\": \"default\",\n    \"sourceText\": null,\n    \"kind\": \"date\",\n    \"date\": \"2023-10-27\"\n  },\n  \"grain\": [\n    \"branch\",\n    \"date\"\n  ],\n  \"aggregation\": \"registered\",\n  \"multiDateGrain\": null,\n  \"group\": {\n    \"fieldIds\": [\n      \"branch\",\n      \"date\"\n    ]\n  },\n  \"compare\": null,\n  \"sort\": [],\n  \"topN\": null,\n  \"completeness\": {\n    \"expectation\": \"requested_scope\",\n    \"requireFullPopulation\": false,\n    \"requiredSourceIds\": [],\n    \"minimumCoverage\": 1.0\n  },\n  \"clarificationNeeds\": [],\n  \"confidence\": 0.95,\n  \"requestedUses\": [\n    \"answer\"\n  ],\n  \"intentKind\": \"query\",\n  \"parentState\": null\n}\n```",
+    "contractPlan": {
+      "planVersion": 1,
+      "planId": "plan-e01-sales-001",
+      "datasetId": "branch_performance",
+      "measures": [
+        {
+          "fieldId": "net_sales",
+          "aggregation": "sum",
+          "interpretation": {
+            "value": "net_sales",
+            "source": "explicit",
+            "sourceText": {
+              "start": 11,
+              "end": 16,
+              "text": "sales"
+            },
+            "confidence": 0.95
+          }
+        }
+      ],
+      "dimensions": [
+        {
+          "fieldId": "branch",
+          "interpretation": {
+            "value": "branch",
+            "source": "explicit",
+            "sourceText": {
+              "start": 9,
+              "end": 12,
+              "text": "E01"
+            },
+            "confidence": 0.99
+          }
+        }
+      ],
+      "filters": [
+        {
+          "fieldId": "branch",
+          "op": "eq",
+          "value": "E01",
+          "sourceText": {
+            "start": 9,
+            "end": 12,
+            "text": "E01"
+          },
+          "confidence": 0.99,
+          "source": "explicit",
+          "evidenceText": "E01"
+        }
+      ],
+      "scope": null,
+      "time": {
+        "fieldId": "date",
+        "timezone": "Asia/Bangkok",
+        "source": "default",
+        "dates": [
+          "2023-10-27"
+        ]
+      },
+      "grain": [
+        "branch",
+        "date"
+      ],
+      "aggregation": "registered",
+      "multiDateGrain": null,
+      "group": {
+        "fieldIds": [
+          "branch",
+          "date"
+        ]
+      },
+      "compare": null,
+      "sort": [],
+      "topN": null,
+      "completeness": {
+        "expectation": "requested_scope",
+        "requireFullPopulation": false,
+        "requiredSourceIds": [],
+        "minimumCoverage": 1.0
+      },
+      "clarificationNeeds": [],
+      "confidence": 0.95,
+      "requestedUses": [
+        "answer"
+      ],
+      "intentKind": "query",
+      "parentState": null
+    }
+  },
+  {
+    "message": "ขอดูยอดขายฝั่งตะวันออกทั้งหมด วันที่ 1 ตุลาคม 2569",
+    "raw": "```json\n{\n  \"planVersion\": 1,\n  \"planId\": \"plan-2026-03-01-east-sales\",\n  \"datasetId\": \"branch_performance\",\n  \"measures\": [\n    {\n      \"fieldId\": \"net_sales\",\n      \"aggregation\": \"sum\",\n      \"interpretation\": {\n        \"value\": \"net_sales\",\n        \"source\": \"explicit\",\n        \"sourceText\": {\n          \"start\": 0,\n          \"end\": 7,\n          \"text\": \"ยอดขาย\"\n        },\n        \"confidence\": 0.95\n      }\n    }\n  ],\n  \"dimensions\": [\n    {\n      \"fieldId\": \"branch\",\n      \"interpretation\": {\n        \"value\": \"branch\",\n        \"source\": \"explicit\",\n        \"sourceText\": {\n          \"start\": 7,\n          \"end\": 15,\n          \"text\": \"ฝั่่งตะว\"\n        },\n        \"confidence\": 0.9\n      }\n    }\n  ],\n  \"filters\": [\n    {\n      \"fieldId\": \"region\",\n      \"op\": \"eq\",\n      \"value\": \"east\",\n      \"sourceText\": {\n        \"start\": 7,\n        \"end\": 15,\n        \"text\": \"ฝั่่งตะว\"\n      },\n      \"confidence\": 0.9\n    }\n  ],\n  \"scope\": null,\n  \"time\": {\n    \"fieldId\": \"date\",\n    \"timezone\": \"Asia/Bangkok\",\n    \"source\": \"explicit\",\n    \"sourceText\": {\n      \"start\": 16,\n      \"end\": 30,\n      \"text\": \"1 ตุลาคม 2569\"\n    },\n    \"kind\": \"date\",\n    \"date\": \"2026-03-01\"\n  },\n  \"grain\": [\n    \"branch\",\n    \"date\"\n  ],\n  \"aggregation\": \"registered\",\n  \"multiDateGrain\": null,\n  \"group\": {\n    \"fieldIds\": [\n      \"branch\"\n    ]\n  },\n  \"compare\": null,\n  \"sort\": [],\n  \"topN\": null,\n  \"completeness\": {\n    \"expectation\": \"requested_scope\",\n    \"requireFullPopulation\": false,\n    \"requiredSourceIds\": [],\n    \"minimumCoverage\": 1.0\n  },\n  \"clarificationNeeds\": [],\n  \"confidence\": 0.9,\n  \"requestedUses\": [\n    \"answer\"\n  ],\n  \"intentKind\": \"query\",\n  \"parentState\": null\n}\n```",
+    "contractPlan": {
+      "planVersion": 1,
+      "planId": "plan-2026-03-01-east-sales",
+      "datasetId": "branch_performance",
+      "measures": [
+        {
+          "fieldId": "net_sales",
+          "aggregation": "sum",
+          "interpretation": {
+            "value": "net_sales",
+            "source": "explicit",
+            "sourceText": {
+              "start": 0,
+              "end": 7,
+              "text": "ยอดขาย"
+            },
+            "confidence": 0.95
+          }
+        }
+      ],
+      "dimensions": [
+        {
+          "fieldId": "branch",
+          "interpretation": {
+            "value": "branch",
+            "source": "explicit",
+            "sourceText": {
+              "start": 7,
+              "end": 15,
+              "text": "ฝั่่งตะว"
+            },
+            "confidence": 0.9
+          }
+        }
+      ],
+      "filters": [
+        {
+          "fieldId": "region",
+          "op": "eq",
+          "value": "east",
+          "sourceText": {
+            "start": 7,
+            "end": 15,
+            "text": "ฝั่่งตะว"
+          },
+          "confidence": 0.9,
+          "source": "explicit",
+          "evidenceText": "ฝั่่งตะว"
+        }
+      ],
+      "scope": null,
+      "time": {
+        "fieldId": "date",
+        "timezone": "Asia/Bangkok",
+        "source": "explicit",
+        "dates": [
+          "2026-03-01"
+        ],
+        "evidenceText": "1 ตุลาคม 2569"
+      },
+      "grain": [
+        "branch",
+        "date"
+      ],
+      "aggregation": "registered",
+      "multiDateGrain": null,
+      "group": {
+        "fieldIds": [
+          "branch"
+        ]
+      },
+      "compare": null,
+      "sort": [],
+      "topN": null,
+      "completeness": {
+        "expectation": "requested_scope",
+        "requireFullPopulation": false,
+        "requiredSourceIds": [],
+        "minimumCoverage": 1.0
+      },
+      "clarificationNeeds": [],
+      "confidence": 0.9,
+      "requestedUses": [
+        "answer"
+      ],
+      "intentKind": "query",
+      "parentState": null
+    }
+  },
+  {
+    "message": "East region net sales vs target on 1 Oct 2026",
+    "raw": "```json\n{\n  \"planVersion\": 1,\n  \"planId\": \"plan-2026-10-01-east-net-sales-vs-target\",\n  \"datasetId\": \"branch_performance\",\n  \"measures\": [\n    {\n      \"fieldId\": \"net_sales\",\n      \"aggregation\": \"sum\",\n      \"interpretation\": {\n        \"value\": \"net_sales\",\n        \"source\": \"explicit\",\n        \"sourceText\": {\n          \"start\": 12,\n          \"end\": 21,\n          \"text\": \"net sales\"\n        },\n        \"confidence\": 1.0\n      }\n    },\n    {\n      \"fieldId\": \"target\",\n      \"aggregation\": \"sum\",\n      \"interpretation\": {\n        \"value\": \"target\",\n        \"source\": \"explicit\",\n        \"sourceText\": {\n          \"start\": 25,\n          \"end\": 31,\n          \"text\": \"target\"\n        },\n        \"confidence\": 1.0\n      }\n    }\n  ],\n  \"dimensions\": [\n    {\n      \"fieldId\": \"region\",\n      \"interpretation\": {\n        \"value\": \"east\",\n        \"source\": \"explicit\",\n        \"sourceText\": {\n          \"start\": 0,\n          \"end\": 4,\n          \"text\": \"East\"\n        },\n        \"confidence\": 1.0\n      }\n    }\n  ],\n  \"filters\": [\n    {\n      \"fieldId\": \"region\",\n      \"op\": \"eq\",\n      \"value\": \"east\",\n      \"sourceText\": {\n        \"start\": 0,\n        \"end\": 4,\n        \"text\": \"East\"\n      },\n      \"confidence\": 1.0\n    }\n  ],\n  \"scope\": null,\n  \"time\": {\n    \"fieldId\": \"date\",\n    \"timezone\": \"Asia/Bangkok\",\n    \"source\": \"explicit\",\n    \"sourceText\": {\n      \"start\": 35,\n      \"end\": 46,\n      \"text\": \"1 Oct 2026\"\n    },\n    \"kind\": \"date\",\n    \"date\": \"2026-10-01\"\n  },\n  \"grain\": [\n    \"region\",\n    \"date\"\n  ],\n  \"aggregation\": \"registered\",\n  \"multiDateGrain\": null,\n  \"group\": {\n    \"fieldIds\": [\n      \"region\",\n      \"date\"\n    ]\n  },\n  \"compare\": {\n    \"kind\": \"vs_target\",\n    \"period\": null,\n    \"baseline\": null,\n    \"sourceText\": {\n      \"start\": 22,\n      \"end\": 31,\n      \"text\": \"vs target\"\n    },\n    \"confidence\": 1.0\n  },\n  \"sort\": [],\n  \"topN\": null,\n  \"completeness\": {\n    \"expectation\": \"requested_scope\",\n    \"requireFullPopulation\": false,\n    \"requiredSourceIds\": [],\n    \"minimumCoverage\": 1.0\n  },\n  \"clarificationNeeds\": [],\n  \"confidence\": 1.0,\n  \"requestedUses\": [\n    \"answer\"\n  ],\n  \"intentKind\": \"query\",\n  \"parentState\": null\n}\n```",
+    "contractPlan": {
+      "planVersion": 1,
+      "planId": "plan-2026-10-01-east-net-sales-vs-target",
+      "datasetId": "branch_performance",
+      "measures": [
+        {
+          "fieldId": "net_sales",
+          "aggregation": "sum",
+          "interpretation": {
+            "value": "net_sales",
+            "source": "explicit",
+            "sourceText": {
+              "start": 12,
+              "end": 21,
+              "text": "net sales"
+            },
+            "confidence": 1.0
+          }
+        },
+        {
+          "fieldId": "target",
+          "aggregation": "sum",
+          "interpretation": {
+            "value": "target",
+            "source": "explicit",
+            "sourceText": {
+              "start": 25,
+              "end": 31,
+              "text": "target"
+            },
+            "confidence": 1.0
+          }
+        }
+      ],
+      "dimensions": [
+        {
+          "fieldId": "region",
+          "interpretation": {
+            "value": "east",
+            "source": "explicit",
+            "sourceText": {
+              "start": 0,
+              "end": 4,
+              "text": "East"
+            },
+            "confidence": 1.0
+          }
+        }
+      ],
+      "filters": [
+        {
+          "fieldId": "region",
+          "op": "eq",
+          "value": "east",
+          "sourceText": {
+            "start": 0,
+            "end": 4,
+            "text": "East"
+          },
+          "confidence": 1.0,
+          "source": "explicit",
+          "evidenceText": "East"
+        }
+      ],
+      "scope": null,
+      "time": {
+        "fieldId": "date",
+        "timezone": "Asia/Bangkok",
+        "source": "explicit",
+        "dates": [
+          "2026-10-01"
+        ],
+        "evidenceText": "1 Oct 2026"
+      },
+      "grain": [
+        "region",
+        "date"
+      ],
+      "aggregation": "registered",
+      "multiDateGrain": null,
+      "group": {
+        "fieldIds": [
+          "region",
+          "date"
+        ]
+      },
+      "compare": {
+        "kind": "vs_target",
+        "period": null,
+        "baseline": null,
+        "sourceText": {
+          "start": 22,
+          "end": 31,
+          "text": "vs target"
+        },
+        "confidence": 1.0
+      },
+      "sort": [],
+      "topN": null,
+      "completeness": {
+        "expectation": "requested_scope",
+        "requireFullPopulation": false,
+        "requiredSourceIds": [],
+        "minimumCoverage": 1.0
+      },
+      "clarificationNeeds": [],
+      "confidence": 1.0,
+      "requestedUses": [
+        "answer"
+      ],
+      "intentKind": "query",
+      "parentState": null
+    }
+  }
+]

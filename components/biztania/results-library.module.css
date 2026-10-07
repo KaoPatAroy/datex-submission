@@ -1,0 +1,24 @@
+.controls { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; margin: 0 0 16px; }
+.controls label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+.controls input, .controls select { min-height: 36px; padding: 0 10px; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface); color: var(--ink); font: inherit; }
+.heading { font-size: 16px; margin: 20px 0 10px; color: var(--ink); }
+.subheading { font-size: 13px; margin: 12px 0 6px; color: var(--muted); font-weight: 600; }
+.list { display: flex; flex-direction: column; gap: 10px; padding: 0; margin: 0 0 12px; list-style: none; }
+.item { border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface); padding: 12px 14px; }
+.item[data-result-pinned='true'] { border-color: var(--accent); }
+.head { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; flex-wrap: wrap; }
+.title { font-weight: 600; color: var(--ink); overflow-wrap: anywhere; }
+.meta { color: var(--muted); font-size: 12px; margin: 4px 0 0; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.actions button[aria-pressed='true'] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-ink); }
+.rename { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; margin-top: 10px; }
+.rename label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+.rename input, .rename select { min-height: 34px; min-width: 220px; padding: 0 10px; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface); color: var(--ink); font: inherit; }
+.history { margin-top: 10px; }
+.revisions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.revisions button[aria-pressed='true'] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-ink); }
+.archived { margin-top: 16px; }
+.archived summary { cursor: pointer; font-weight: 600; margin-bottom: 8px; }
+.ok { color: var(--accent-ink); font-size: 13px; margin: 0 0 10px; }
+.state { padding: 16px; color: var(--muted); }
+.error { padding: 12px 16px; color: var(--danger); background: var(--danger-soft); border-radius: var(--radius-md); margin: 0 0 10px; }

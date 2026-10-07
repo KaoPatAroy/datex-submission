@@ -1,0 +1,3 @@
+import {NextRequest,NextResponse} from 'next/server';import {z} from 'zod';import {getStore} from '@/lib/storage';import {actorSession,checkCsrf} from '@/lib/server/session';import {failure} from '@/lib/server/http';import {ConciergeService} from '@/lib/core/service';
+export const runtime='nodejs';export const maxDuration=120;
+export async function POST(request:NextRequest,context:{params:Promise<{id:string}>}){try{const store=await getStore(),{actor,session}=await actorSession(store);checkCsrf(request,session);z.object({}).strict().parse(await request.json());const{id}=await context.params;return NextResponse.json(await new ConciergeService(store).confirm(actor,id));}catch(error){return failure(error);}}
