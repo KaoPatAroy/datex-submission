@@ -1,11 +1,11 @@
 import 'server-only';
 
 import { DomainError, invariant } from '../core/errors';
-import { canonical, digest } from '../core/utils';
+import { canonical, digest, pendingActionApprovalHash } from '../core/utils';
 import { createSeedData } from './generate';
 import { type Branch, type Employee, type Profile, type SeedData, type Store, type PendingAction, type Receipt, type Inventory, type Incident } from '../contracts';
 import { actionPayloadSchema } from '../core/action-schema';
-import { expectedInventory, expectedIncident } from '../packs/operations-runtime';
+import { expectedInventory, expectedIncident, verifyDemo } from '../packs/operations-runtime';
 import {
   addBangkokCalendarDays,
   demoWorkflowPolicyV1,
@@ -30,6 +30,7 @@ import type {
 } from '../storage/workflow-projections';
 import { getWorkflowProjection, validateWorkflowProjectionBody } from '../storage/workflow-projections';
 import { getStorageFailureMetadata, type StorageFailureMetadata } from '../storage/read-error';
+import { withReadSnapshot } from '../storage/read-snapshot';
 
 const WORKFLOW_V2_SEED_VERSION = 2;
 const ACTION_DEMO_TARGET_COUNT = 20;
@@ -38,6 +39,7 @@ const ONBOARDING_READY_REQUEST_INDEX = 0;
 const SYNTHETIC_SEED_NAMESPACE = 'biztania.workflow-v2.synthetic-seed';
 const SYNTHETIC_SEED_GENERATOR = 'lib/seed/generate.ts:createSeedData';
 const SEED_CHUNK_SIZE = 250;
+// Completed phase certificates bind initial population; V1 operational rows remain live.
 /** The HR Director login profile (lib/seed/generate.ts) that the seeded Director directory identity is bound to. */
 export const DEMO_DIRECTOR_PROFILE_ID = 'director';
 const DIRECTOR_PERMISSIONS = ['hr.onboarding.director_read', 'hr.onboarding.director_approve', 'hr.onboarding.return'] as const;
@@ -247,7 +249,7 @@ const SHARED_EVOLVABLE_FIELDS: Partial<Record<WorkflowStorageTable, readonly str
 };
 type DemoScenario = Extract<ReturnType<typeof actionPayloadSchema.parse>, { kind: 'demo_update' }>['scenario'];
 
-function seedEvolutionChecker(reader: Pick<Store, 'get'>, businessDate?: string) {
+function seedEvolutionChecker(reader: Pick<Store, 'get' | 'list'>, businessDate?: string) {
   const scenarios = new Map<string, Promise<DemoScenario | undefined>>();
   const scenarioFor = (operationKey: string) => {
     let cached = scenarios.get(operationKey);
@@ -257,13 +259,24 @@ function seedEvolutionChecker(reader: Pick<Store, 'get'>, businessDate?: string)
         const receiptId = operationKey.slice(0, -':artifact'.length);
         // Legacy receipts are intentionally absent from the V2 mixed-table projection.
         const receipt = await reader.get<Receipt>('action_executions', receiptId);
-        if (!receipt || receipt.id !== receiptId || receipt.kind !== 'demo_update' || receipt.status !== 'verified_success'
-          || !receipt.results?.some(result => result.targetId === 'artifact' && result.status === 'verified_success')
+        if (!receipt || receipt.id !== receiptId || receipt.kind !== 'demo_update'
+          || !Array.isArray(receipt.results) || receipt.results.length !== 1
           || receiptId !== `execution_${receipt.actionId}`) return undefined;
         const action = await reader.get<PendingAction>('pending_actions', receipt.actionId);
         const payload = actionPayloadSchema.safeParse(action?.payload);
-        return action?.actorId === receipt.actorId && action.status === 'completed' && payload.success && payload.data.kind === 'demo_update'
-          ? payload.data.scenario : undefined;
+        const result = receipt.results[0];
+        if (!action || action.id !== receipt.actionId || action.actorId !== receipt.actorId
+          || action.payloadHash !== pendingActionApprovalHash(action)
+          || result.targetId !== 'artifact' || result.id !== `effect_${digest(operationKey).slice(0, 24)}`) return undefined;
+        const verified = receipt.status === 'verified_success' && result.status === 'verified_success'
+          && action.status === 'completed' && instantSchema.safeParse(receipt.verifiedAt).success;
+        // A pending effect ID alone cannot prove the entire source write survived later writers.
+        // Reuse execution readback inside this recovery revision envelope before accepting evolution.
+        const committedInFlight = receipt.status === 'pending' && receipt.verifiedAt === null
+          && result.status === 'pending' && action.status === 'claimed';
+        if (!(verified || committedInFlight) || !payload.success || payload.data.kind !== 'demo_update') return undefined;
+        if (committedInFlight && (!businessDate || !await verifyDemo({ reader, businessDate, operationKey, executedAt: result.executedAt }, payload.data))) return undefined;
+        return payload.data.scenario;
       })();
       scenarios.set(operationKey, cached);
     }
@@ -917,14 +930,14 @@ function seedBeginRecord(plan: WorkflowV2SeedPlan): SeedBody {
 }
 
 async function tableHoldsOnlyPlannedRows(
-  tx: WorkflowTransactionContext,
+  reader: Pick<WorkflowProjectionReader, 'query'>,
   table: WorkflowStorageTable,
   plannedIds: ReadonlySet<string>,
 ): Promise<boolean> {
   const pageSize = 100;
   let cursor: string | undefined;
   for (let page = 0; page <= plannedIds.size / pageSize + 1; page += 1) {
-    const rows = await tx.workflowProjectionReader.query<SeedBody>({
+    const rows = await reader.query<SeedBody>({
       kind: 'scoped', table, limit: pageSize, ...(cursor === undefined ? {} : { cursor }),
     });
     if (rows.some(row => !plannedIds.has(row.id))) return false;
@@ -934,7 +947,23 @@ async function tableHoldsOnlyPlannedRows(
   return false;
 }
 
-async function preflightSeedPlan(tx: WorkflowTransactionContext, plan: WorkflowV2SeedPlan, legacyReader: Pick<Store, 'get'>): Promise<string[]> {
+async function hasSeedNaturalKeyConflict(
+  reader: Pick<WorkflowProjectionReader, 'query'>, table: WorkflowStorageTable, rows: readonly PlannedRow[],
+  evolved: ReturnType<typeof seedEvolutionChecker>,
+): Promise<boolean> {
+  const naturalRows = rows.filter(row => primaryKey(row).constraint !== `${table}_primary_key`);
+  if (!naturalRows.length || await tableHoldsOnlyPlannedRows(reader, table, new Set(rows.map(row => row.body.id)))) return false;
+  for (const row of naturalRows) {
+    const key = primaryKey(row);
+    const matches = await reader.query<SeedBody>({ kind: 'unique', table, constraint: key.constraint, values: key.values });
+    for (const match of matches) {
+      if (match.id !== row.body.id || (!sameSeedRecord(row.body, match.body) && !await evolved(row, match))) return true;
+    }
+  }
+  return false;
+}
+
+async function preflightSeedPlan(tx: WorkflowTransactionContext, plan: WorkflowV2SeedPlan, legacyReader: Pick<Store, 'get' | 'list'>): Promise<string[]> {
   const evolved = seedEvolutionChecker(legacyReader, plan.businessDate);
   const rowsByTable = new Map<WorkflowStorageTable, PlannedRow[]>();
   for (const phase of plan.phases) {
@@ -958,27 +987,11 @@ async function preflightSeedPlan(tx: WorkflowTransactionContext, plan: WorkflowV
       for (const current of existing) existingById.set(current.id, current);
     }
 
-    // A natural-key conflict needs a row whose id is NOT in the plan: rows with a planned id are compared by body
-    // above, and equal bodies have equal keys. One paged scan proves a table holds no foreign rows, replacing one
-    // `unique` round trip per planned row (tens of thousands against PostgREST) with a handful of page reads.
-    let onlyPlannedRows: boolean | undefined;
-    const plannedIds = new Set(rows.map(row => row.body.id));
     for (const row of rows) {
       const current = existingById.get(row.body.id);
       if (current && !sameSeedRecord(row.body, current.body) && !await evolved(row, current)) conflictingTables.add(table);
-
-      const key = primaryKey(row);
-      if (key.constraint === `${table}_primary_key`) continue;
-      onlyPlannedRows ??= await tableHoldsOnlyPlannedRows(tx, table, plannedIds);
-      if (onlyPlannedRows) continue;
-      const matches = await tx.workflowProjectionReader.query<SeedBody>({
-        kind: 'unique',
-        table,
-        constraint: key.constraint,
-        values: key.values,
-      });
-      for (const match of matches) if (match.id !== row.body.id || (!sameSeedRecord(row.body, match.body) && !await evolved(row, match))) conflictingTables.add(table);
     }
+    if (await hasSeedNaturalKeyConflict(tx.workflowProjectionReader, table, rows, evolved)) conflictingTables.add(table);
   }
   return [...conflictingTables].sort();
 }
@@ -1043,8 +1056,11 @@ async function insertPlanRow(tx: WorkflowTransactionContext, row: PlannedRow, ev
   const result = await tx.insertUnique(row.table, row.body, primaryKey(row));
   const current = result.inserted ? result.row : result.existing;
   if (!sameSeedRecord(row.body, current)) {
-    // insertUnique can observe a writer after the prefetched absence; reread native version, then apply the same rule.
-    const concurrent = await tx.workflowProjectionReader.get<unknown>(row.table, row.body.id);
+    // Validate the winner with its unique-probe native version. An ID reread may still hold stale absence.
+    // Older adapters without that metadata must provide matching projected evidence or conflict safely.
+    const concurrent = !result.inserted && result.existingRowVersion !== undefined
+      ? { id: current.id, rowVersion: result.existingRowVersion, body: current }
+      : await tx.workflowProjectionReader.get<unknown>(row.table, row.body.id);
     if (!concurrent || !sameSeedRecord(concurrent.body as SeedBody, current) || !await evolved(row, concurrent)) {
       throw new DomainError('CONFLICT', `Existing ${row.table}/${row.body.id} differs from the immutable seed plan`, 409);
     }
@@ -1052,18 +1068,32 @@ async function insertPlanRow(tx: WorkflowTransactionContext, row: PlannedRow, ev
   return result.inserted;
 }
 
+function phaseLedgerBody(plan: WorkflowV2SeedPlan, phase: SourceSeedPhase, rows: readonly PlannedRow[]): SeedBody {
+  const plannedCounts: Record<string, number> = {};
+  for (const row of rows) plannedCounts[row.table] = (plannedCounts[row.table] ?? 0) + 1;
+  return {
+    id: seededId(plan.seed, `phase-ledger:${phase}`), actorId: plan.identities.ledgerProfileId,
+    category: 'synthetic_workflow_v2_seed_phase',
+    summary: canonical({ provenance: 'synthetic_demo_seed', generator: SYNTHETIC_SEED_GENERATOR,
+      seedVersion: plan.seedVersion, seedTag: plan.seedTag, inputDigest: plan.inputDigest,
+      phaseDigest: phaseDigest(plan.seed, plan.businessDate, plan.sourceDigest, phase, rows),
+      sourceDigest: plan.sourceDigest, phase, plannedCounts }),
+    createdAt: plan.createdAt, correlationId: seededId(plan.seed, `phase-correlation:${phase}`),
+    targetRefs: rows.map(row => ({ table: row.table, id: row.body.id })), outcome: 'seeded_synthetic_source',
+  };
+}
+
 async function insertPhase(
   tx: WorkflowTransactionContext,
   plan: WorkflowV2SeedPlan,
   phase: SourceSeedPhase,
   rows: readonly PlannedRow[],
-  legacyReader: Pick<Store, 'get'> = tx,
+  legacyReader: Pick<Store, 'get' | 'list'> = tx,
 ): Promise<WorkflowV2SeedPhaseSummary> {
   let inserted = 0;
   let alreadyCurrent = 0;
   const phaseHash = phaseDigest(plan.seed, plan.businessDate, plan.sourceDigest, phase, rows);
   const byTable: Record<string, { inserted: number; alreadyCurrent: number }> = {};
-  const plannedCounts: Record<string, number> = {};
   const evolved = seedEvolutionChecker(legacyReader, plan.businessDate);
 
   // One ids read per table batch instead of one probe per row (the adapter remembers presence and absence).
@@ -1076,7 +1106,6 @@ async function insertPhase(
   }
 
   for (const row of rows) {
-    plannedCounts[row.table] = (plannedCounts[row.table] ?? 0) + 1;
     const wasInserted = await insertPlanRow(tx, row, evolved);
     const counts = byTable[row.table] ?? { inserted: 0, alreadyCurrent: 0 };
     if (wasInserted) {
@@ -1090,27 +1119,7 @@ async function insertPhase(
   }
 
   const ledgerId = seededId(plan.seed, `phase-ledger:${phase}`);
-  const correlationId = seededId(plan.seed, `phase-correlation:${phase}`);
-  const auditBody: SeedBody = {
-    id: ledgerId,
-    actorId: plan.identities.ledgerProfileId,
-    category: 'synthetic_workflow_v2_seed_phase',
-    summary: canonical({
-      provenance: 'synthetic_demo_seed',
-      generator: SYNTHETIC_SEED_GENERATOR,
-      seedVersion: plan.seedVersion,
-      seedTag: plan.seedTag,
-      inputDigest: plan.inputDigest,
-      phaseDigest: phaseHash,
-      sourceDigest: plan.sourceDigest,
-      phase,
-      plannedCounts,
-    }),
-    createdAt: plan.createdAt,
-    correlationId,
-    targetRefs: rows.map(row => ({ table: row.table, id: row.body.id })),
-    outcome: 'seeded_synthetic_source',
-  };
+  const auditBody = phaseLedgerBody(plan, phase, rows);
   const ledger = await insertPlanRow(tx, plannedRow('audit_events', auditBody, {
     key: { constraint: 'audit_events_primary_key', values: { id: ledgerId } },
   }));
@@ -1125,6 +1134,63 @@ async function insertPhase(
     ledgerId,
     ledgerInserted: ledger,
   };
+}
+
+/** Cold instances validate all sources and phase certificates once, in one revision envelope.
+ * Missing/conflicting rows fall back to the original guarded bootstrap/resume path. */
+async function currentSeedPhases(store: WorkflowV2SeedStore, plan: WorkflowV2SeedPlan, includeManagerSummary: boolean): Promise<{ phases: WorkflowV2SeedPhaseSummary[]; managerAdvancement: WorkflowV2SeedResult['managerAdvancement'] | null } | null> {
+  // Read through the snapshot-scoped reader, not a workflowTransaction: the seed write path then keeps its original
+  // transaction sequence (marker, then phases) when this precheck finds the plan incomplete.
+  return withReadSnapshot(store, async () => {
+    const reader = store.workflowProjectionReader;
+    const marker = seedBeginRecord(plan), actor = ledgerProfileBody(plan);
+    const [storedMarker, storedActor] = await Promise.all([
+      reader.get<unknown>('audit_events', marker.id),
+      reader.get<unknown>('profiles', actor.id),
+    ]);
+    if (!storedMarker || !storedActor || !sameSeedRecord(marker, storedMarker.body) || !sameSeedRecord(actor, storedActor.body)) return null;
+    const planned = [...plan.phases.flatMap(phase => phase.rows), ...plan.phases.map(phase => plannedRow('audit_events', phaseLedgerBody(plan, phase.phase, phase.rows)))];
+    const byTable = new Map<WorkflowStorageTable, PlannedRow[]>();
+    for (const row of planned) { const rows = byTable.get(row.table) ?? []; rows.push(row); byTable.set(row.table, rows); }
+    // Scope scans both enforce off-plan natural keys and prime these tables' native row cache.
+    // Validate their planned IDs through get below instead of refetching the same projected rows.
+    const naturalTables = new Set([...byTable].filter(([table, rows]) => rows.some(row => primaryKey(row).constraint !== `${table}_primary_key`)).map(([table]) => table));
+    const naturalSources = [...byTable].filter(([table]) => naturalTables.has(table));
+    const evolved = seedEvolutionChecker(store, plan.businessDate);
+    for (let offset = 0; offset < naturalSources.length; offset += 8) {
+      const conflicts = await Promise.all(naturalSources.slice(offset, offset + 8).map(([table, rows]) => hasSeedNaturalKeyConflict(reader, table, rows, evolved)));
+      if (conflicts.some(Boolean)) return null;
+    }
+    const batches: { table: WorkflowStorageTable; rows: PlannedRow[] }[] = [];
+    for (const [table, rows] of byTable) for (let offset = 0; offset < rows.length; offset += 100) batches.push({ table, rows: rows.slice(offset, offset + 100) });
+    let ready = true;
+    // Bound simultaneous HTTPS calls while allowing independent source batches to overlap.
+    for (let offset = 0; offset < batches.length; offset += 8) await Promise.all(batches.slice(offset, offset + 8).map(async batch => {
+      const rows: ProjectedRow<SeedBody>[] = [];
+      if (naturalTables.has(batch.table)) {
+        // Keep cache misses sequential within a batch so a partial DB still has at most eight reads in flight.
+        for (const row of batch.rows) {
+          const current = await reader.get<SeedBody>(batch.table, row.body.id);
+          if (current) rows.push(current);
+        }
+      } else rows.push(...await reader.query<SeedBody>({ kind: 'ids', table: batch.table, ids: batch.rows.map(row => row.body.id) }));
+      const existing = new Map(rows.map(row => [row.id, row]));
+      for (const row of batch.rows) {
+        const current = existing.get(row.body.id);
+        if (!current || (!sameSeedRecord(row.body, current.body) && !await evolved(row, current))) ready = false;
+      }
+    }));
+    if (!ready) return null;
+    const phases = plan.phases.map(({ phase, rows }) => {
+      const byTable: Record<string, { inserted: number; alreadyCurrent: number }> = {};
+      for (const row of rows) { const counts = byTable[row.table] ?? { inserted: 0, alreadyCurrent: 0 }; counts.alreadyCurrent++; byTable[row.table] = counts; }
+      return { phase, digest: phaseDigest(plan.seed, plan.businessDate, plan.sourceDigest, phase, rows), rows: rows.length,
+        inserted: 0, alreadyCurrent: rows.length, byTable, ledgerId: seededId(plan.seed, `phase-ledger:${phase}`), ledgerInserted: false };
+    });
+    const managerAdvancement = includeManagerSummary ? await managerAdvancementSummary({ store }, plan,
+    { seed: plan.seed, businessDate: plan.businessDate }) : null;
+    return { phases, managerAdvancement };
+  });
 }
 
 async function commitPhase(store: WorkflowV2SeedStore, plan: WorkflowV2SeedPlan, phase: WorkflowV2SeedPlan['phases'][number]): Promise<WorkflowV2SeedPhaseSummary> {
@@ -1253,18 +1319,20 @@ async function managerAdvancementSummary(
     invariant(selectedRequestIds.every(id => prepared.identities.onboardingRequestIds.includes(id)),
       'WORKFLOW_INVALID_INPUT', 'Only this seed version’s exact synthetic onboarding request IDs may be selected');
 
+    const pendingForRuntime = await server.store.workflowTransaction(async tx => {
+    const reader=tx.workflowProjectionReader;
     let selectedRequestsReady = true;
     for (const requestId of selectedRequestIds) {
-      const current = await currentOnboardingRequest(server.store.workflowProjectionReader, requestId);
+      const current = await currentOnboardingRequest(reader, requestId);
       if (!current) {
         selectedRequestsReady = false;
         break;
       }
       if (current.body.state === 'director_approval_pending' && await hasVerifiedManagerExecution(
-        server.store.workflowProjectionReader, current.body, prepared.identities.managerProfile.id, prepared.identities.managerIdentityId,
-      ) && await hasSeededOnboardingScope(server.store.workflowProjectionReader, prepared, current.body, 'director')) continue;
+        reader, current.body, prepared.identities.managerProfile.id, prepared.identities.managerIdentityId,
+      ) && await hasSeededOnboardingScope(reader, prepared, current.body, 'director')) continue;
       if (current.body.state !== 'manager_review_pending' || current.body.managerIdentityId !== prepared.identities.managerIdentityId ||
-        !(await hasSeededOnboardingScope(server.store.workflowProjectionReader, prepared, current.body, 'manager'))) {
+        !(await hasSeededOnboardingScope(reader, prepared, current.body, 'manager'))) {
         selectedRequestsReady = false;
         break;
       }
@@ -1273,9 +1341,11 @@ async function managerAdvancementSummary(
     const needsRuntime = selectedRequestsReady ? selectedRequestIds : [];
     const pendingForRuntime: string[] = [];
     for (const requestId of needsRuntime) {
-      const current = await currentOnboardingRequest(server.store.workflowProjectionReader, requestId);
+      const current = await currentOnboardingRequest(reader, requestId);
       if (current?.body.state === 'manager_review_pending') pendingForRuntime.push(requestId);
     }
+    return pendingForRuntime;
+    });
     if (pendingForRuntime.length > 0 && server.advanceManagerApprovals) {
       try {
         await server.advanceManagerApprovals({
@@ -1290,18 +1360,20 @@ async function managerAdvancementSummary(
     }
   }
 
+  return server.store.workflowTransaction(async tx => {
+  const reader=tx.workflowProjectionReader;
   const directorQueueRequestIds: string[] = [];
   const managerReadyRequestIds: string[] = [];
   for (const requestId of prepared.identities.onboardingRequestIds) {
-    const current = await currentOnboardingRequest(server.store.workflowProjectionReader, requestId);
+    const current = await currentOnboardingRequest(reader, requestId);
     if (!current) continue;
     if (current.body.state === 'manager_review_pending' && current.body.managerIdentityId === prepared.identities.managerIdentityId &&
-      await hasSeededOnboardingScope(server.store.workflowProjectionReader, prepared, current.body, 'manager')) {
+      await hasSeededOnboardingScope(reader, prepared, current.body, 'manager')) {
       managerReadyRequestIds.push(requestId);
     }
     if (await hasVerifiedManagerExecution(
-      server.store.workflowProjectionReader, current.body, prepared.identities.managerProfile.id, prepared.identities.managerIdentityId,
-    ) && await hasSeededOnboardingScope(server.store.workflowProjectionReader, prepared, current.body, 'director')) {
+      reader, current.body, prepared.identities.managerProfile.id, prepared.identities.managerIdentityId,
+    ) && await hasSeededOnboardingScope(reader, prepared, current.body, 'director')) {
       directorQueueRequestIds.push(requestId);
     }
   }
@@ -1311,6 +1383,7 @@ async function managerAdvancementSummary(
     ? directorQueueRequestIds.length > 0 ? 'already_present' : 'not_requested'
     : allSelectedVerified ? 'verified' : 'runtime_unverified';
   return { state, selectedRequestIds, managerReadyRequestIds, directorQueueRequestIds };
+  });
 }
 
 function assertSeedServer(server: WorkflowV2SeedServerOptions): void {
@@ -1367,6 +1440,15 @@ export async function persistWorkflowV2SeedPlan(
   assertSeedServer(server);
   assertPlanIntegrity(plan);
   validateManagerSelection(plan, options);
+  // SQLite has no HTTPS cost and retains its existing observable write-phase boundaries.
+  const current = server.store.adapter === 'supabase'
+    ? await currentSeedPhases(server.store, plan, options.advanceManagerRequestIds === undefined) : null;
+  if (current) {
+    const managerAdvancement = current.managerAdvancement ?? await managerAdvancementSummary(server, plan, { seed: plan.seed, businessDate: plan.businessDate,
+      ...(options.advanceManagerRequestIds === undefined ? {} : { advanceManagerRequestIds: options.advanceManagerRequestIds }) });
+    return { ...bootstrapResult(plan, 'source_ready', [], current.phases), managerAdvancement,
+      directorQueueReady: managerAdvancement.directorQueueRequestIds.length > 0 };
+  }
   const bootstrap = await persistSeedBeginMarker(server.store, plan);
   if (bootstrap.state === 'legacy_base_requires_seed_plan' || bootstrap.state === 'seed_plan_conflict') {
     return bootstrapResult(plan, bootstrap.state, bootstrap.blockedTables);
@@ -1502,13 +1584,16 @@ export async function persistWorkflowV2DemoQueue(
   const { requestIds, rows } = demoQueueRows(plan);
   if (requestIds.length === 0) return { state: 'not_requested', requestIds, directorQueueRequestIds: [] };
   await commitPhase(server.store, plan, { phase: DEMO_QUEUE_PHASE, rows });
-  const reader = server.store.workflowProjectionReader;
   if (options.advance && server.advanceManagerApprovals) {
+    const pending = await server.store.workflowTransaction(async tx => {
+    const reader = tx.workflowProjectionReader;
     const pending: string[] = [];
     for (const requestId of requestIds) {
       const current = await currentOnboardingRequest(reader, requestId);
       if (current?.body.state === 'manager_review_pending' && await hasSeededOnboardingScope(reader, plan, current.body, 'manager')) pending.push(requestId);
     }
+    return pending;
+    });
     if (pending.length > 0) {
       try {
         await server.advanceManagerApprovals({ requestIds: pending, managerIdentityId: plan.identities.managerIdentityId,
@@ -1518,6 +1603,8 @@ export async function persistWorkflowV2DemoQueue(
       }
     }
   }
+  return server.store.workflowTransaction(async tx => {
+  const reader = tx.workflowProjectionReader;
   const directorQueueRequestIds: string[] = [];
   for (const requestId of requestIds) {
     const current = await currentOnboardingRequest(reader, requestId);
@@ -1525,6 +1612,7 @@ export async function persistWorkflowV2DemoQueue(
       await hasSeededOnboardingScope(reader, plan, current.body, 'director')) directorQueueRequestIds.push(requestId);
   }
   return { state: !options.advance ? 'not_requested' : directorQueueRequestIds.length === requestIds.length ? 'verified' : 'runtime_unverified', requestIds, directorQueueRequestIds };
+  });
 }
 
 export type WorkflowV2DirectorIdentityEnsure = 'inserted' | 'present_bound' | 'present_mismatch' | 'deferred_to_v2_bootstrap';

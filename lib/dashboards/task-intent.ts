@@ -22,8 +22,7 @@ export function dashboardIntentRequest(intent: DashboardIntent, workspace: Pick<
   let prompt = intent.actionKind === 'dashboard_share' ? `ช่วยเตรียมแชร์ ${name} ให้ผู้ร่วมงาน` : `${intent.prompt} จาก ${name}`;
   if (intent.actionKind === 'ticket_create' && intent.taskOptions !== undefined) {
     if (!validDashboardTaskOptions(intent.taskOptions)) return null;
-    // These controls request a Task with an assignee; the catalog Ticket flow has a different contract.
-    prompt = `ช่วยเตรียม Task ติดตามสาขาที่ยอดขายต่ำกว่าเป้า จาก ${name}`;
+    // Keep the intent's wording and resolve the selected account by id without adding internal ids to composer text.
     const { assigneeId, dueDate } = intent.taskOptions;
     if (assigneeId && assigneeId !== actorId) {
       const person = workspace.taskAssigneeOptions?.find(option => option.id === assigneeId);

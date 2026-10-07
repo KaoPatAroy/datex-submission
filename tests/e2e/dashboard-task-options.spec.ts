@@ -66,7 +66,7 @@ for (const width of [1440, 390]) {
       await page.screenshot({ path: testInfo.outputPath(`task-options-${entryPoint}-${width}.png`) });
       await form.getByRole('button', { name: 'เติมคำขอในบทสนทนา', exact: true }).click();
       const composer = page.getByRole('textbox', { name: 'ข้อความถึง DaTex' });
-      const prepared = `ช่วยเตรียม Task ติดตามสาขาที่ยอดขายต่ำกว่าเป้า จาก Dashboard “${dashboard.spec.title}” มอบหมายให้ ${personName} กำหนดส่งวันที่ 2026-10-12`;
+      const prepared = `${prompt} จาก Dashboard “${dashboard.spec.title}” มอบหมายให้ ${personName} กำหนดส่งวันที่ 2026-10-12`;
       await expect(composer).toHaveValue(prepared);
       await expect(composer).toBeFocused();
       expect(writes).toEqual([]);

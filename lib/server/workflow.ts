@@ -20,6 +20,7 @@ export type WorkflowV2ServerRuntime = Pick<ComposedWorkflowRuntime,
 const dashboardPageSize = 100;
 const maximumOwnedDashboards = 1_000;
 let runtimePromise: Promise<WorkflowV2ServerRuntime> | undefined;
+let runtimeBootstrap: WorkflowV2SeedResult | undefined;
 
 function dashboardSelectionUnavailable(): DomainError {
   return new DomainError('WORKFLOW_METADATA_UNAVAILABLE', 'Current dashboard selection could not be established', 503);
@@ -158,11 +159,13 @@ export async function getWorkflowV2ServerRuntime(): Promise<WorkflowV2ServerRunt
     throw new DomainError('WORKFLOW_UNAVAILABLE', 'Workflow V2 source bootstrap is not ready', 503);
   }
 
-  if (!runtimePromise) {
-    runtimePromise = composeWorkflowV2ServerRuntime(bootstrap).catch(error => {
-      runtimePromise = undefined;
+  if (!runtimePromise || runtimeBootstrap !== bootstrap) {
+    runtimeBootstrap = bootstrap;
+    const composing = composeWorkflowV2ServerRuntime(bootstrap).catch(error => {
+      if (runtimePromise === composing) runtimePromise = undefined;
       throw error;
     });
+    runtimePromise = composing;
   }
   return runtimePromise;
 }

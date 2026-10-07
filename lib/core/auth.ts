@@ -1,7 +1,12 @@
 import type { Actor, Profile, Reader, Scope, Mode } from '../contracts';
+import { profileSchema } from '../contracts';
 import { invariant } from './errors';
 
 export interface SessionRow { id: string; profileId: string; mode: Mode; modeRevision: number; csrfToken: string; expiresAt: string }
+export async function readCurrentProfile(reader: Pick<Reader,'get'>, profileId: string): Promise<Profile | undefined> {
+  const parsed = profileSchema.safeParse(await reader.get('profiles',profileId));
+  return parsed.success && parsed.data.id === profileId ? parsed.data : undefined;
+}
 export function requirePermission(actor: Actor, permission: string): void {
   invariant(actor.active && actor.permissions.includes(permission), 'FORBIDDEN', 'บัญชีนี้ไม่มีสิทธิ์ดำเนินการนี้', 403);
 }
@@ -13,7 +18,7 @@ export function authorizedScope(actor: Actor, scope: Scope): Scope {
   return scope;
 }
 export async function reloadActor(reader: Reader, actor: Actor, now = new Date()): Promise<Actor> {
-  const profile = await reader.get<Profile>('profiles', actor.id);
+  const profile = await readCurrentProfile(reader, actor.id);
   const session = await reader.get<SessionRow>('sessions', actor.sessionId);
   invariant(profile?.active && session && session.profileId === actor.id && new Date(session.expiresAt) > now, 'UNAUTHENTICATED', 'กรุณาเข้าสู่ระบบใหม่', 401);
   return { ...profile, sessionId: session.id, mode: session.mode, modeRevision: session.modeRevision };

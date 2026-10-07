@@ -114,6 +114,16 @@ describe('router UI client logic', () => {
     expect(proposalDetailRows(view())).toEqual([
       { key: 'dashboardId', label: 'Dashboard', value: 'D1' }, { key: 'recipientIds', label: 'ผู้รับ', value: 'u1, u2' }]);
   });
+  it('omits an empty Monitor recipient row while retaining other confirmation details', () => {
+    expect(proposalDetailRows(view({ actionId: 'monitor.create', details: { recipientIds: [], threshold: 'ต่ำกว่า 90% ของเป้า' } }))).toEqual([
+      { key: 'threshold', label: 'เกณฑ์แจ้งเตือน', value: 'ต่ำกว่า 90% ของเป้า' },
+    ]);
+  });
+  it('shows the server recipient labels on a Monitor confirmation', () => {
+    expect(proposalDetailRows(view({ actionId: 'monitor.create', details: { recipientIds: ['ผู้จัดการภาคตะวันออก', 'ผู้บริหาร'] } }))).toEqual([
+      { key: 'recipientIds', label: 'ผู้รับ', value: 'ผู้จัดการภาคตะวันออก, ผู้บริหาร' },
+    ]);
+  });
   it('fetch failure is an error state, never an empty list (F13)', async () => {
     await expect(fetchPendingProposals((async () => { throw new Error('x'); }) as never)).rejects.toThrow('x');
     expect(await loadPendingProposals((async () => { throw new Error('x'); }) as never)).toEqual({ status: 'error', message: PROPOSALS_LOAD_ERROR });

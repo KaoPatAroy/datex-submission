@@ -7,6 +7,7 @@ import { plan, planner } from './helpers/turn-planner';
 import { actors, BUSINESS_DATE, createWorkspaceFixture, FIXED_NOW } from './helpers/workspace';
 import { span } from './dynamic/fixtures';
 import { hrPlan } from './dynamic/wave2/fixtures';
+import { executeHrQueryStep } from '../lib/router/executors/hr';
 
 vi.mock('@/lib/router/planner/provider', async importOriginal =>
   (await import('./helpers/turn-planner')).plannerProviderModule(await importOriginal<object>()));
@@ -100,6 +101,16 @@ describe('HR employee region scope fence', () => {
     return turn;
   }
   const citedHrSources = (value: { sources?: { id: string }[] }) => (value.sources ?? []).filter(source => source.id.startsWith('hr:'));
+
+  it('attributes an HR permission refusal to this account rather than system capability', async () => {
+    const workspace = await createCentralEmployee();
+    const result = await executeHrQueryStep({ store: workspace.store, actor: actors.executive, message, diagnosticId: 'hr-deny-copy',
+      now: () => FIXED_NOW, step: { kind: 'hr_query', plan: hrPlan(message) } });
+    expect(result.outcome).toBe('denied');
+    expect(result.text).toContain('บัญชีนี้ไม่มีสิทธิ์');
+    expect(result.text).not.toContain('ระบบไม่สามารถ');
+    expect(result.text).not.toContain('Synthetic Central Employee');
+  });
 
   it('denies a persisted East Manager with hr.read a Central employee lookup through the router', async () => {
     const workspace = await createCentralEmployee();

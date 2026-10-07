@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { Actor, Branch, Employee, Profile, Reader, Receipt, Store, Ticket } from '../contracts';
+import { listByIds } from '../storage/batch';
 import { DomainError } from '../core/errors';
 import { extractTicketPlan } from '../core/ticket-plan-text';
 import { paginate, sortKey, type Page, type PageInput } from '../pagination';
@@ -129,19 +130,22 @@ function view(actor: Actor, base: BaseItem, overlay: Overlay | undefined, label:
 
 /** Every item this actor may see in `scope`, with its lifecycle applied (unfiltered by archive/search; callers narrow before paging). */
 async function collect(store: Store, actor: Actor, scope: WorkItemScope): Promise<ManagedWorkItem[]> {
-  const label = await labeler(store);
-  const overlayRows = await store.list<unknown>('tool_executions', scope === 'created' || scope === 'tickets' ? { actorId: actor.id, status: WORK_ITEM_STATE_STATUS } : { status: WORK_ITEM_STATE_STATUS });
+  const [label, overlayRows] = await Promise.all([
+    labeler(store),
+    store.list<unknown>('tool_executions', scope === 'created' || scope === 'tickets' ? { actorId: actor.id, status: WORK_ITEM_STATE_STATUS } : { status: WORK_ITEM_STATE_STATUS }),
+  ]);
   const overlays = new Map<string, Overlay>();
   for (const raw of overlayRows) { const o = parseOverlay(raw); if (o && o.id === workItemStateRowId(o.workItemId)) overlays.set(o.workItemId, o); }
   if (scope === 'tickets') {
-    const profile = await store.get<Profile>('profiles', actor.id);
+    const ids = await ticketIdsCreatedBy(store, actor);
+    const [profile, rows] = await Promise.all([store.get<Profile>('profiles', actor.id), listByIds<unknown>(store, 'mock_tickets', ids)]);
+    const tickets = rows.filter(isLegacyTicket).filter(row => ids.includes(row.id));
+    const bases = tickets.map(row => fromTicket(row, actor.id));
+    const branches = new Map((await listByIds<Branch>(store, 'branches', bases.flatMap(base => base.branchIds))).map(branch => [branch.id, branch]));
     const items: ManagedWorkItem[] = [];
-    for (const id of await ticketIdsCreatedBy(store, actor)) {
-      const row = await store.get<unknown>('mock_tickets', id);
-      if (!isLegacyTicket(row) || row.id !== id) continue;
-      const base = fromTicket(row, actor.id);
-      if (profile && !(await branchesInScope(store, profile, base.branchIds))) continue;
-      items.push(view(actor, base, overlays.get(id), label));
+    for (const base of bases) {
+      if (profile && !(await branchesInScope(store, profile, base.branchIds, branches))) continue;
+      items.push(view(actor, base, overlays.get(base.id), label));
     }
     return items;
   }
@@ -152,20 +156,22 @@ async function collect(store: Store, actor: Actor, scope: WorkItemScope): Promis
   // assigned to me by someone else: scan task rows of every creator (bounded by the retained dataset), then apply the CURRENT assignee (overlay edits win)
   const profile = await store.get<Profile>('profiles', actor.id);
   const rows = (await store.list<unknown>('tool_executions', { status: WORK_ITEM_STATUS })).map(parseTask).filter((r): r is WorkItemRow => !!r);
+  const candidates = rows.filter(row => row.actorId !== actor.id && assigneeOf(fromTask(row), overlays.get(row.id)) === actor.id);
+  const branches = new Map((await listByIds<Branch>(store, 'branches', candidates.flatMap(row => fromTask(row).branchIds))).map(branch => [branch.id, branch]));
   const items: ManagedWorkItem[] = [];
-  for (const row of rows) {
+  for (const row of candidates) {
     const base = fromTask(row), overlay = overlays.get(row.id);
     if (row.actorId === actor.id || assigneeOf(base, overlay) !== actor.id) continue;
-    if (!profile?.active || !(await assigneeMayReach(store, profile, base.branchIds))) continue;
+    if (!profile?.active || !profile.permissions.includes('sales.read') || !(await branchesInScope(store, profile, base.branchIds, branches))) continue;
     items.push(view(actor, base, overlay, label));
   }
   return items;
 }
 
-async function branchesInScope(reader: Reader, profile: Pick<Profile, 'active' | 'regions'>, branchIds: readonly string[]): Promise<boolean> {
+async function branchesInScope(reader: Reader, profile: Pick<Profile, 'active' | 'regions'>, branchIds: readonly string[], branches?: ReadonlyMap<string, Branch>): Promise<boolean> {
   if (!profile.active) return false;
   for (const id of new Set(branchIds)) {
-    const branch = await reader.get<Branch>('branches', id);
+    const branch = branches ? branches.get(id) : await reader.get<Branch>('branches', id);
     // Fail closed: a branch that cannot be resolved is never "authorized by default".
     if (!branch || !regionAllowed(profile, branch.region)) return false;
   }
@@ -285,8 +291,12 @@ export async function getWorkItemDetail(store: Store, actor: Actor, workItemId: 
   const history: WorkItemTransitionView[] = [];
   // Latest window: the most recent MAX_HISTORY revisions (never the oldest), with an explicit marker when older ones are omitted.
   const fromRevision = Math.max(1, item.revision - MAX_HISTORY + 1);
+  const transitionIds = Array.from({ length: Math.max(0, item.revision - fromRevision + 1) }, (_, index) => workItemTransitionRowId(workItemId, fromRevision + index));
+  const transitions = new Map((await listByIds<unknown>(store, 'tool_executions', transitionIds)).flatMap(raw => {
+    const row = parseTransition(raw); return row ? [[row.id, row] as const] : [];
+  }));
   for (let revision = fromRevision; revision <= item.revision; revision++) {
-    const row = parseTransition(await store.get<unknown>('tool_executions', workItemTransitionRowId(workItemId, revision)));
+    const row = transitions.get(workItemTransitionRowId(workItemId, revision));
     if (!row || row.workItemId !== workItemId) continue;
     history.push({ revision: row.revision, op: row.op, from: row.from, to: row.to, at: row.at, actorLabel: label(row.actorId), role: row.role,
       ...(row.changed ? { changed: row.changed } : {}), ...(row.assigneeFrom ? { assigneeFrom: label(row.assigneeFrom) } : {}), ...(row.assigneeTo ? { assigneeTo: label(row.assigneeTo) } : {}) });

@@ -340,7 +340,7 @@ function LoginScreen({
       <section className="auth-panel-wrap">
         <div className="auth-panel">
           <h2>เข้าสู่พื้นที่ทำงาน</h2>
-          <p>เลือกโปรไฟล์ที่ได้รับอนุญาตและใส่รหัสเข้าใช้งาน</p>
+          <p>เลือกโปรไฟล์ที่ได้รับอนุญาตและใส่รหัสเข้าใช้งาน</p><p className="auth-note" role="note">ยังไม่มีรหัส? ดูรหัสเข้าใช้งานได้ในสไลด์นำเสนอ (Presentation) ของทีม</p>
           {error && <div className="error-banner" role="alert"><Icon name="alertCircle" /><div className="banner-copy"><strong>เข้าใช้งานไม่ได้</strong><p>{error}</p>{showRetry && <button className="text-button" style={{ marginTop: 8 }} type="button" onClick={onRetry}>ตรวจสอบสถานะอีกครั้ง</button>}</div></div>}
           <form onSubmit={submit}>
             <div className="form-field"><label htmlFor="profileId">โปรไฟล์</label><select id="profileId" value={profileId} onChange={(event) => setProfileId(event.target.value)} disabled={busy}>{loginProfiles.map((profile) => <option value={profile.id} key={profile.id}>{profile.label} · {profile.description}</option>)}</select></div>
@@ -801,6 +801,20 @@ export default function NexusWorkspace({ requestedDashboardId: initialDashboardI
 
   useEffect(() => {
     let cancelled = false;
+    let workspaceRetryTimer: ReturnType<typeof setTimeout> | null = null;
+    let cancelWorkspaceRetry: (() => void) | null = null;
+    function waitForWorkspaceRetry(): Promise<boolean> {
+      return new Promise((resolve) => {
+        const finish = (retry: boolean) => {
+          if (workspaceRetryTimer !== null) clearTimeout(workspaceRetryTimer);
+          workspaceRetryTimer = null;
+          cancelWorkspaceRetry = null;
+          resolve(retry);
+        };
+        cancelWorkspaceRetry = () => finish(false);
+        workspaceRetryTimer = setTimeout(() => finish(true), 500);
+      });
+    }
     async function bootstrap() {
       setScreen('checking');
       setLoginError(null);
@@ -815,8 +829,13 @@ export default function NexusWorkspace({ requestedDashboardId: initialDashboardI
         setSession(currentSession);
         setScreen('ready');
         try {
-          const read = await readLatestWorkspace();
+          let read = await readLatestWorkspace();
           if (cancelled || read.generation !== workspaceReadGeneration.current) return;
+          if ('error' in read && read.error instanceof ApiError && read.error.code === 'request_timeout') {
+            if (!await waitForWorkspaceRetry() || cancelled || read.generation !== workspaceReadGeneration.current) return;
+            read = await readLatestWorkspace();
+            if (cancelled || read.generation !== workspaceReadGeneration.current) return;
+          }
           if ('error' in read) throw read.error;
           const currentWorkspace = read.workspace;
           setWorkspace(currentWorkspace);
@@ -862,7 +881,11 @@ export default function NexusWorkspace({ requestedDashboardId: initialDashboardI
       }
     }
     void bootstrap();
-    return () => { cancelled = true; workspaceReadGeneration.current += 1; };
+    return () => {
+      cancelled = true;
+      workspaceReadGeneration.current += 1;
+      cancelWorkspaceRetry?.();
+    };
   }, [bootstrapAttempt, applyTurnReadback, applyExactRecovery, readLatestWorkspace]);
 
   useEffect(() => {
@@ -1088,6 +1111,7 @@ export default function NexusWorkspace({ requestedDashboardId: initialDashboardI
   }
 
   async function sendTurn(message: string, recoveryOfTurnId?: string, recoveryConversationId?: string, preserveDraft = false, demoShowcaseId?: string, catalogEntryId?: string, clarification?: { choiceId: string; clarifiedTurnId: string }, targets?: { kind: 'artifact' | 'dashboard' | 'monitor'; id: string; revision?: number }[]): Promise<boolean> {
+    if (reviewedProposal) return false;
     if (!session || !csrfToken || !workspace) {
       setChatRejection('ส่งข้อความไม่ได้ เพราะบทสนทนายังโหลดไม่ครบ กรุณาลองอีกครั้ง');
       return false;
@@ -1841,7 +1865,7 @@ export default function NexusWorkspace({ requestedDashboardId: initialDashboardI
             {conversationReceiptState.hasOlder && displayedSection === 'overview' && <p className="panel-subtitle" data-conversation-receipts-cap>แสดงผลการดำเนินการล่าสุดได้สูงสุด 100 รายการต่อบทสนทนา</p>}
 
           </div>
-          {displayedSection === 'overview' ? <ChatThread demoGuide={demoGuide} onShowcase={item => void tryShowcase(item)} onOpenDemoGuide={() => setDemoGuideOpen(true)} aiUnavailable={aiUnavailable} aiUnavailableStatus={aiUnavailableStatus} onSwitchToDemo={() => void switchMode('scripted_demo', false, true)} onDismissAIUnavailable={() => { aiAvailabilityDismissed.current = true; setAIUnavailable(false); }} modeBusy={modeBusy || Boolean(actionMutation)} catalogStatus={catalogStatus} onCatalogRetry={refreshWorkspace} catalog={catalog} businessDate={workspace.businessDate} pendingCount={visibleActions.filter(action => canConfirm(action) && !visibleReceipts.some(receipt => receipt.actionId === action.id)).length} messages={chatMessages} conversationKey={activeConversationId ?? 'new'} actor={actor} actorDisplayName={actorDisplayName(actor)} currentMode={actor.mode} busy={turnBusy} draft={draft} setDraft={setDraft} catalogEntryId={catalogEntryId} onCatalogEntryIdChange={setCatalogEntryId} onSend={(message) => { const entryId = catalogEntryId, targets = turnTargets; setCatalogEntryId(undefined); setTurnTargets(undefined); return sendTurn(message, undefined, undefined, false, undefined, entryId, undefined, targets); }} recovery={turnRecovery} onRecover={() => void recoverTurn()} onRefresh={() => void refreshTurnStatus()} recoveryChecking={recoveryChecking} onNewQuestion={startNewQuestion} continueConversation={Boolean(failedTurnConversationId(turnRecovery, workspace))} rejection={chatRejection} blockedDraft={blockedRequestTexts.includes(draft.trim())} chatEnabled={canChat} suggestionsEnabled={!modeBusy && !workspaceError} onEvidence={(id, target) => { setDetailSelection({ kind: 'message', id }); setSourceTarget(target ?? null); setContextOpen(true); }} onChooseWork={() => navigate('capabilities')} onStop={activeStreamTurn ? () => streamAbortRef.current?.abort() : undefined} renderAction={renderMessageActions} completionNotice={completionNotice} routerReceipts={conversationReceipts} routerUi={{ proposals: stagedProposals, proposalsError: proposalsLoadError, onRetryProposals: () => void refreshProposals(), onReviewProposal: openProposalReview, onChoose: chooseClarification, onArtifact: (message, artifact, operation) => void artifactWrite(message, artifact, operation), artifactBusy, artifactNotice }} /> : <div className={styles.contentPage}><div className={styles.pageInner}>{demoGuide}
+          {displayedSection === 'overview' ? <ChatThread demoGuide={demoGuide} onShowcase={item => void tryShowcase(item)} onOpenDemoGuide={() => setDemoGuideOpen(true)} aiUnavailable={aiUnavailable} aiUnavailableStatus={aiUnavailableStatus} onSwitchToDemo={() => void switchMode('scripted_demo', false, true)} onDismissAIUnavailable={() => { aiAvailabilityDismissed.current = true; setAIUnavailable(false); }} modeBusy={modeBusy || Boolean(actionMutation)} catalogStatus={catalogStatus} onCatalogRetry={refreshWorkspace} catalog={catalog} businessDate={workspace.businessDate} pendingCount={visibleActions.filter(action => canConfirm(action) && !visibleReceipts.some(receipt => receipt.actionId === action.id)).length} messages={chatMessages} conversationKey={activeConversationId ?? 'new'} actor={actor} actorDisplayName={actorDisplayName(actor)} currentMode={actor.mode} busy={turnBusy} draft={draft} setDraft={setDraft} catalogEntryId={catalogEntryId} onCatalogEntryIdChange={setCatalogEntryId} onSend={(message) => { const entryId = catalogEntryId, targets = turnTargets; setCatalogEntryId(undefined); setTurnTargets(undefined); return sendTurn(message, undefined, undefined, false, undefined, entryId, undefined, targets); }} recovery={turnRecovery} onRecover={() => void recoverTurn()} onRefresh={() => void refreshTurnStatus()} recoveryChecking={recoveryChecking} onNewQuestion={startNewQuestion} continueConversation={Boolean(failedTurnConversationId(turnRecovery, workspace))} rejection={reviewedProposal ? 'ปิดหน้าต่างตรวจรายการหรือผลการดำเนินการก่อนส่งข้อความ ข้อความที่พิมพ์ไว้ยังอยู่' : chatRejection} blockedDraft={blockedRequestTexts.includes(draft.trim())} chatEnabled={canChat && !reviewedProposal} suggestionsEnabled={!modeBusy && !workspaceError} onEvidence={(id, target) => { setDetailSelection({ kind: 'message', id }); setSourceTarget(target ?? null); setContextOpen(true); }} onChooseWork={() => navigate('capabilities')} onStop={activeStreamTurn ? () => streamAbortRef.current?.abort() : undefined} renderAction={renderMessageActions} completionNotice={completionNotice} routerReceipts={conversationReceipts} routerUi={{ proposals: stagedProposals, proposalsError: proposalsLoadError, onRetryProposals: () => void refreshProposals(), onReviewProposal: openProposalReview, onChoose: chooseClarification, onArtifact: (message, artifact, operation) => void artifactWrite(message, artifact, operation), artifactBusy, artifactNotice }} /> : <div className={styles.contentPage}><div className={styles.pageInner}>{demoGuide}
             {['dashboards', 'inbox'].includes(displayedSection) && <nav className={styles.subNav} aria-label="ประเภท Dashboard"><button type="button" aria-current={displayedSection === 'dashboards' ? 'page' : undefined} onClick={() => navigate('dashboards')}>Dashboard ของฉัน</button><button type="button" aria-current={displayedSection === 'inbox' ? 'page' : undefined} onClick={() => navigate('inbox')}>แชร์ถึงฉัน {inboxItems.length > 0 ? `(${inboxItems.length})` : ''}</button></nav>}
             {['actions', 'capabilities'].includes(displayedSection) && <nav className={styles.subNav} aria-label="งานของคุณ"><button type="button" aria-current={displayedSection === 'actions' ? 'page' : undefined} onClick={() => navigate('actions')}>คำขอและผลการทำงาน</button><button type="button" aria-current={displayedSection === 'capabilities' ? 'page' : undefined} onClick={() => navigate('capabilities')}>งานที่ทำได้</button></nav>}
             {currentDashboardTaskTarget && (displayedSection === 'dashboards' || displayedSection === 'dashboard' && currentDashboardTaskTarget.dashboardId === requestedDashboardId) && <DashboardTaskOptions key={`${actor.sessionId}:${currentDashboardTaskTarget.dashboardId}`} title={currentDashboardTaskTarget.title} actorId={actor.id} assigneeOptions={workspace.taskAssigneeOptions} disabled={!canPrepareTasks || turnBusy || Boolean(turnRecovery) || modeBusy || Boolean(workspaceError)} onPrepare={options => void dashboardIntent('tasks', currentDashboardTaskTarget.dashboardId, options)} onCancel={() => { setDashboardTaskTarget(null); dashboardTaskTrigger.current?.focus(); }} />}

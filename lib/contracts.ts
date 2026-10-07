@@ -8,6 +8,10 @@ export type Mode = 'live_ai' | 'scripted_demo';
 export const turnFailureReasonSchema = z.enum(['turn_failed', 'turn_cancelled']);
 export type TurnFailureReason = z.infer<typeof turnFailureReasonSchema>;
 export interface Profile { id: string; name: string; role: Role; active: boolean; permissions: string[]; regions: string[] }
+export const profileSchema = z.object({
+  id: z.string().min(1), name: z.string().min(1), role: z.enum(['executive','east_manager','hr_admin','hr_director']),
+  active: z.boolean(), permissions: z.array(z.string().min(1)), regions: z.array(z.string().min(1)),
+});
 export interface Actor extends Profile { sessionId: string; mode: Mode; modeRevision: number }
 export interface Branch { id: string; name: string; region: string }
 export interface Product { id: string; name: string; category: string }
@@ -27,7 +31,7 @@ export type RowFilter = Record<string,string|string[]>;
 export interface ReadOptions { limit?: number }
 export interface Reader { list<T>(table: Table, filters?:RowFilter, options?: ReadOptions): Promise<T[]>; get<T>(table: Table, id: string): Promise<T | undefined> }
 export interface Transaction extends Reader { put<T extends { id: string }>(table: Table, row: T): Promise<void>; remove(table: Table, id: string): Promise<void> }
-export interface Store extends Reader { transaction<T>(work: (tx: Transaction) => Promise<T>): Promise<T>; adapter: 'sqlite' | 'supabase'; close?(): void }
+export interface Store extends Reader { transaction<T>(work: (tx: Transaction) => Promise<T>): Promise<T>; adapter: 'sqlite' | 'supabase'; close?(): void; /** Pure reads only; the callback may be replayed after a revision change. */ readSnapshot?<T>(work: () => Promise<T>): Promise<T> }
 export interface SeedData { profiles: Profile[]; branches: Branch[]; products: Product[]; sales_orders: SalesOrder[]; sales_targets: SalesTarget[]; inventory_snapshots: Inventory[]; incidents: Incident[]; staffing_summaries: Staffing[]; employees: Employee[]; policy_documents: PolicyDocument[]; mock_badges: Badge[]; mock_tickets: Ticket[] }
 
 export const businessDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(value => {
@@ -113,7 +117,7 @@ export interface FollowUpSuggestion { id:string; label:string; prompt:string; co
 export interface FollowUpSuggestions { status:'ready'|'none'|'data_unavailable'; conversationId:string; afterMessageId:string; items:FollowUpSuggestion[] }
 export interface PendingAction { id: string; actorId: string; sessionId: string; conversationId: string; turnId: string; mode: Mode; modeRevision: number; payload: ActionPayload; payloadHash: string; evidenceVersion: string | null; packs: PackPin[]; receiptAccess?:ReceiptAccess; releaseRevision?:string; actionContractVersion?:1; approvalScope?:Scope; approvalDisplay?:ApprovalDisplay; predecessorActionId?:string; supersededByActionId?:string; staleReason?:PendingActionStaleReason; revisionDiff?:string[]; createdAt: string; expiresAt: string; status: 'pending' | 'claimed' | 'completed' | 'stale'; preview: string }
 export interface PendingActionRevisionResult { predecessor: PendingAction; replacement: PendingAction; diff: string[] }
-export interface TargetResult { targetId: string; id: string | null; status: 'verified_success' | 'pending' | 'failed' | 'denied'; detail: string }
+export interface TargetResult { targetId: string; id: string | null; executedAt?: string; status: 'verified_success' | 'pending' | 'failed' | 'denied'; detail: string }
 export interface Receipt { visibility?:'full'; readbackRevision?:string; id: string; actionId: string; actorId: string; kind: ActionKind; status: 'verified_success' | 'pending' | 'failed' | 'denied'; results: TargetResult[]; createdAt: string; verifiedAt: string | null; dashboardId?: string }
 export interface RestrictedReceipt { visibility:'restricted'; id:string; actionId:string; status:Receipt['status']; results:[]; createdAt:string; verifiedAt:null; detail:string; kind?:never; actorId?:never; dashboardId?:never }
 export type ReceiptView = Receipt | RestrictedReceipt;

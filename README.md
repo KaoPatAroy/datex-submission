@@ -51,7 +51,14 @@ npm run build
 
 Repository: https://github.com/KaoPatAroy/datex-submission
 
-The repository URL is stable so it can be used in the submission form and QR code while the pre-deadline candidate is refined. The final qualifying-round snapshot will be frozen with a Git tag before submission closes.
+This repository is the submission snapshot of the latest successful Vercel Production deployment at the time of freezing.
+
+- Production source commit: `ef930e8b206ffbb53b20048a26dbd3832763a1e1`
+- Release: `Release A0: faster loading, Thai labels, chart palette B, login access-code note (#19)`
+- Production deployment status: `success`
+- Production URL: https://biztania-ai-concierge.vercel.app/
+
+The public mirror has a separate, clean Git history; the source files in this snapshot are taken from the exact production commit above.
 
 ## Security / repository scope
 

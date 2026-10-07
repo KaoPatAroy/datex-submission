@@ -6,14 +6,16 @@ const FILTER_KEYS = new Set([
   'date',
   'region',
   'actorId',
+  'ownerId',
   'sessionId',
+  'conversationId',
   'recipientId',
   'dashboardId',
   'employeeId',
   'operationKey',
   'status'
 ]);
-const MAX_FILTER_VALUES = 1_000;
+export const MAX_FILTER_VALUES = 1_000;
 const MAX_FILTER_VALUE_LENGTH = 300;
 
 export function validateRowFilter(input: unknown): RowFilter | undefined {

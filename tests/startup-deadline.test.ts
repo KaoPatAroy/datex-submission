@@ -56,6 +56,7 @@ const runtimeSource = [
   textOf(apiErrorNode),
   textOf(apiRequestNode),
   ...workspaceReadDependencies.map(node => `const ${textOf(node)};`),
+  `globalThis.__readLatestWorkspace = readLatestWorkspace;`,
   `globalThis.__apiRequest = apiRequest;`,
   `globalThis.__ApiError = ApiError;`,
   `globalThis.__bootstrapEffect = ${textOf(bootstrapEffectNode)};`,
@@ -100,6 +101,7 @@ function createRuntime(fetchImpl: unknown, bindings: Record<string, unknown> = {
   return {
     apiRequest: context.__apiRequest as ApiRequest,
     bootstrapEffect: context.__bootstrapEffect as () => () => void,
+    readLatestWorkspace: context.__readLatestWorkspace as () => Promise<unknown>,
   };
 }
 
@@ -116,19 +118,22 @@ function startBootstrap(fetchImpl: unknown) {
   const runtime = createRuntime(fetchImpl, {
     bootstrapAttempt: 0,
     applyTurnReadback: () => undefined,
+    readActionMutationMemory: () => ({}),
     readRecoveryMemory: () => ({ pending: null, blockedTexts: [], newConversation: false }),
     setScreen: (value: string) => snapshot.screens.push(value),
     setLoginError: (value: unknown) => snapshot.loginErrors.push(value),
     setSession: (value: unknown) => snapshot.sessions.push(value),
     setWorkspace: (value: unknown) => snapshot.workspaces.push(value),
     setWorkspaceError: (value: unknown) => snapshot.workspaceErrors.push(value),
+    setUncertainActionMutations: () => undefined,
+    setSelectedConversationId: () => undefined,
     setTurnRecovery: () => undefined,
     setBlockedRequestTexts: () => undefined,
     setNewConversation: () => undefined,
     setDraft: () => undefined,
   });
   const cleanup = runtime.bootstrapEffect();
-  return { snapshot, cleanup };
+  return { snapshot, cleanup, readLatestWorkspace: runtime.readLatestWorkspace };
 }
 
 beforeEach(() => {
@@ -330,14 +335,18 @@ describe('production startup request deadline', () => {
     bootstrap.cleanup();
   });
 
-  it('keeps a valid session ready when the initial workspace GET times out', async () => {
-    const workspace = deferred<Response>();
+  it('retries one initial workspace timeout after 500ms without showing an error, then loads the workspace', async () => {
+    const firstWorkspace = deferred<Response>();
     const session = { actor: { id: 'actor-1', sessionId: 'session-1' } };
+    const workspace = { actor: { id: 'actor-1', sessionId: 'session-1' } };
+    let workspaceAttempts = 0;
     const fetchMock = vi.fn((input: RequestInfo | URL, _init?: RequestInit) => {
       void _init;
-      return String(input) === '/api/session'
-        ? Promise.resolve(responseWithBody(200, JSON.stringify(session)))
-        : workspace.promise;
+      if (String(input) === '/api/session') return Promise.resolve(responseWithBody(200, JSON.stringify(session)));
+      workspaceAttempts += 1;
+      return workspaceAttempts === 1
+        ? firstWorkspace.promise
+        : Promise.resolve(responseWithBody(200, JSON.stringify(workspace)));
     });
     const bootstrap = startBootstrap(fetchMock);
 
@@ -347,26 +356,138 @@ describe('production startup request deadline', () => {
     expect(fetchMock.mock.calls[1]?.[0]).toBe('/api/workspace');
     expect(bootstrap.snapshot.screens).toEqual(['checking', 'ready']);
     expect(bootstrap.snapshot.sessions).toEqual([session]);
-    expect(vi.getTimerCount()).toBe(1);
     const signal = fetchMock.mock.calls[1]?.[1]?.signal;
 
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(bootstrap.snapshot.screens).toEqual(['checking', 'ready']);
+    expect(bootstrap.snapshot.workspaceErrors).toEqual([]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(vi.getTimerCount()).toBe(1);
+    await vi.advanceTimersByTimeAsync(499);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(bootstrap.snapshot.workspaceErrors).toEqual([]);
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(bootstrap.snapshot.screens).toEqual(['checking', 'ready']);
+    expect(bootstrap.snapshot.sessions.at(-1)).toEqual(session);
+    expect(bootstrap.snapshot.workspaces).toEqual([workspace]);
+    expect(bootstrap.snapshot.workspaceErrors).toEqual([null]);
+    expect(signal?.aborted).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(vi.getTimerCount()).toBe(0);
+
+    firstWorkspace.resolve(responseWithBody(200, '{"actor":{"id":"late"}}'));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(bootstrap.snapshot.screens).toEqual(['checking', 'ready']);
+    expect(bootstrap.snapshot.workspaces).toEqual([workspace]);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    bootstrap.cleanup();
+  });
+
+  it('surfaces the error after the one permitted retry also times out', async () => {
+    const workspaces = [deferred<Response>(), deferred<Response>()];
+    const session = { actor: { id: 'actor-1', sessionId: 'session-1' } };
+    let workspaceAttempts = 0;
+    const fetchMock = vi.fn((input: RequestInfo | URL, _init?: RequestInit) => {
+      void _init;
+      if (String(input) === '/api/session') return Promise.resolve(responseWithBody(200, JSON.stringify(session)));
+      return workspaces[workspaceAttempts++]!.promise;
+    });
+    const bootstrap = startBootstrap(fetchMock);
+
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(30_000);
+
+    expect(bootstrap.snapshot.workspaceErrors).toEqual([]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(500);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(bootstrap.snapshot.workspaceErrors).toEqual([]);
     await vi.advanceTimersByTimeAsync(29_999);
     expect(bootstrap.snapshot.workspaceErrors).toEqual([]);
     await vi.advanceTimersByTimeAsync(1);
 
     expect(bootstrap.snapshot.screens).toEqual(['checking', 'ready']);
-    expect(bootstrap.snapshot.sessions).toEqual([session]);
-    expect(bootstrap.snapshot.workspaces).toEqual([]);
     expect(bootstrap.snapshot.workspaceErrors).toHaveLength(1);
-    expect(signal?.aborted).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(vi.getTimerCount()).toBe(0);
+    bootstrap.cleanup();
+  });
+
+  it.each([
+    { status: 401, body: '{"error":{"message":"Unauthorized","code":"unauthorized"}}' },
+    { status: 503, body: '{"error":{"message":"Unavailable","code":"service_unavailable"}}' },
+  ])('does not retry an initial workspace HTTP $status error', async ({ status, body }) => {
+    const session = { actor: { id: 'actor-1', sessionId: 'session-1' } };
+    const fetchMock = vi.fn((input: RequestInfo | URL, _init?: RequestInit) => {
+      void _init;
+      return String(input) === '/api/session'
+        ? Promise.resolve(responseWithBody(200, JSON.stringify(session)))
+        : Promise.resolve(responseWithBody(status, body));
+    });
+    const bootstrap = startBootstrap(fetchMock);
+
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(bootstrap.snapshot.screens).toEqual(['checking', 'ready']);
+    expect(bootstrap.snapshot.workspaceErrors).toHaveLength(1);
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(vi.getTimerCount()).toBe(0);
+    bootstrap.cleanup();
+  });
 
-    workspace.resolve(responseWithBody(200, '{"actor":{"id":"late"}}'));
+  it('cancels a scheduled retry on cleanup and ignores late initial workspace results', async () => {
+    const firstWorkspace = deferred<Response>();
+    const session = { actor: { id: 'actor-1', sessionId: 'session-1' } };
+    const fetchMock = vi.fn((input: RequestInfo | URL, _init?: RequestInit) => {
+      void _init;
+      return String(input) === '/api/session'
+        ? Promise.resolve(responseWithBody(200, JSON.stringify(session)))
+        : firstWorkspace.promise;
+    });
+    const bootstrap = startBootstrap(fetchMock);
+
     await vi.advanceTimersByTimeAsync(0);
-    expect(bootstrap.snapshot.screens).toEqual(['checking', 'ready']);
-    expect(bootstrap.snapshot.workspaces).toEqual([]);
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(bootstrap.snapshot.workspaceErrors).toEqual([]);
     expect(fetchMock).toHaveBeenCalledTimes(2);
+    bootstrap.cleanup();
+    await vi.advanceTimersByTimeAsync(500);
+    firstWorkspace.resolve(responseWithBody(200, '{"actor":{"id":"late"}}'));
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(bootstrap.snapshot.workspaces).toEqual([]);
+    expect(bootstrap.snapshot.workspaceErrors).toEqual([]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('suppresses the scheduled retry when a newer workspace read supersedes bootstrap', async () => {
+    const firstWorkspace = deferred<Response>();
+    const newerWorkspace = deferred<Response>();
+    const session = { actor: { id: 'actor-1', sessionId: 'session-1' } };
+    let workspaceAttempts = 0;
+    const fetchMock = vi.fn((input: RequestInfo | URL, _init?: RequestInit) => {
+      void _init;
+      if (String(input) === '/api/session') return Promise.resolve(responseWithBody(200, JSON.stringify(session)));
+      workspaceAttempts += 1;
+      return workspaceAttempts === 1 ? firstWorkspace.promise : newerWorkspace.promise;
+    });
+    const bootstrap = startBootstrap(fetchMock);
+
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(bootstrap.snapshot.workspaceErrors).toEqual([]);
+
+    const newerRead = bootstrap.readLatestWorkspace();
+    newerWorkspace.resolve(responseWithBody(200, '{"actor":{"id":"newer","sessionId":"session-1"}}'));
+    await expect(newerRead).resolves.toMatchObject({ workspace: { actor: { id: 'newer' } } });
+    await vi.advanceTimersByTimeAsync(500);
+    firstWorkspace.resolve(responseWithBody(200, '{"actor":{"id":"late","sessionId":"session-1"}}'));
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(bootstrap.snapshot.workspaces).toEqual([]);
+    expect(bootstrap.snapshot.workspaceErrors).toEqual([]);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
     bootstrap.cleanup();
   });
 });

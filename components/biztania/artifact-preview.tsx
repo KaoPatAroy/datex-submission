@@ -4,6 +4,8 @@ import { useCallback, useState } from 'react';
 import type { ArtifactFact, ArtifactRendererSpec } from '@/lib/visualization/contracts';
 import { factLabel, factValue } from '@/lib/visualization/presentation';
 import { freshnessDisplay } from '@/lib/presentation/source-names';
+import { displayBranchNames } from '@/lib/presentation/branch-names';
+import { regionName } from './product-labels';
 import { ArtifactChart, EMPTY_CHART_STATE, type ChartState } from './artifact-chart';
 import { ArtifactTable } from './artifact-table';
 import styles from './artifact-preview.module.css';
@@ -25,8 +27,14 @@ export function ArtifactPreview({ spec, drillUrl }: {
   const labels = spec.labels;
   const thai = Boolean(labels);
   const text = (th: string, en: string) => thai ? th : en;
-  const regionLabel = (id: string) => labels?.values.region?.[id] ?? id;
-  const branchLabel = (id: string) => labels?.values.branch?.[id] ?? id;
+  const regionLabel = (id: string) => {
+    const label = labels?.values.region?.[id];
+    return label && label !== id ? label : regionName(id);
+  };
+  const branchLabel = (id: string) => {
+    const label = labels?.values.branch?.[id];
+    return label && label !== id ? displayBranchNames(label) : 'สาขาที่เลือก';
+  };
   const visual = spec.visualization;
   const [chart, setChart] = useState<ChartState>(EMPTY_CHART_STATE);
   const [drill, setDrill] = useState<DrillState>({ status: 'idle' });

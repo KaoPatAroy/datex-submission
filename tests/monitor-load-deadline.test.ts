@@ -18,6 +18,7 @@ describe('Monitor list loading deadline', () => {
 
   it('provides a clear retry message after the deadline', () => {
     expect(MONITOR_LOAD_ERROR_COPY).toContain('โหลดรายการ Monitor ไม่สำเร็จ');
-    expect(MONITOR_LOAD_ERROR_COPY).toContain('กดโหลดใหม่');
+    expect(MONITOR_LOAD_ERROR_COPY).toContain('กด “ลองอีกครั้ง”');
+    expect(MONITOR_LOAD_ERROR_COPY).not.toContain('กดโหลดใหม่');
   });
 });

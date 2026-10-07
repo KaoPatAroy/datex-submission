@@ -724,6 +724,10 @@ export interface WorkflowProjectionReader {
 
 export interface WorkflowTransactionContext extends GuardedTransaction {
   readonly workflowProjectionReader: WorkflowProjectionReader;
+  /** Native version observed by the unique probe, even when a prior ID absence remains cached. */
+  insertUnique<T extends { id: string }>(
+    table: WorkflowStorageTable, row: T, key: { constraint: string; values: Record<string, string | number> },
+  ): Promise<{ inserted: true; row: T } | { inserted: false; existing: T; existingRowVersion?: number }>;
 }
 
 export interface WorkflowStoreCapability {

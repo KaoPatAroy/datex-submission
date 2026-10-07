@@ -560,7 +560,7 @@ describe('SQLite workflow storage conformance', () => {
       };
       expect(await store.workflowTransaction((tx) => tx.insertUnique('responsibilities', duplicateUnit, {
         constraint, values: uniqueValues(duplicateUnit)
-      }))).toEqual({ inserted: false, existing: first });
+      }))).toEqual({ inserted: false, existing: first, existingRowVersion: 1 });
 
       const wrongUnitKeyCandidate = {
         ...second,
@@ -1238,7 +1238,7 @@ describe('SQLite workflow storage conformance', () => {
 
       const identical = await store.workflowTransaction((tx) => tx.insertUnique('dashboard_shares', share, key));
 
-      expect(identical).toEqual({ inserted: false, existing: share });
+      expect(identical).toEqual({ inserted: false, existing: share, existingRowVersion: 1 });
       const conflicting = {
         ...share,
         id: 'workflow-storage-share-conflicting-semantics',
@@ -1624,7 +1624,7 @@ describe('SQLite workflow storage conformance', () => {
       expect(await store.workflowTransaction((tx) => tx.insertUnique('action_executions', retry, {
         constraint: 'action_executions_root_attempt_unique',
         values: { rootId: root.id, attempt: 1 }
-      }))).toEqual({ inserted: false, existing: receipt });
+      }))).toEqual({ inserted: false, existing: receipt, existingRowVersion: 1 });
 
       const db = fixture.openDatabase();
       try {

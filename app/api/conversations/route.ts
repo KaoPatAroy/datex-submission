@@ -1,3 +1,4 @@
+import {withReadSnapshot} from '@/lib/storage/read-snapshot';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getStore } from '@/lib/storage';
@@ -48,11 +49,11 @@ async function limitMutation(request: NextRequest, sessionId: string, store: Awa
 
 export async function GET(request: NextRequest) {
   try {
-    const store = await getStore();
+    const store = await getStore();return await withReadSnapshot(store,async()=>{
     const { actor } = await actorSession(store);
     const result = await listConversations(store, actor.id, readOptions(request));
     return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } });
-  } catch (error) {
+  });} catch (error) {
     return failure(error);
   }
 }

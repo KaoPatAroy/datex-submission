@@ -1011,7 +1011,7 @@ describe('SQLite workflow projection completeness', () => {
       };
       const revisionBeforeSameCase = readRevision(fixture);
       await expect(store.workflowTransaction((tx) => tx.insertUnique('branch_review_assignments', sameCaseOpen, unique)))
-        .resolves.toEqual({ inserted: false, existing: rows.branchAssignment });
+        .resolves.toEqual({ inserted: false, existing: rows.branchAssignment, existingRowVersion: 12 });
       expect(readRevision(fixture)).toBe(revisionBeforeSameCase);
       expect(await store.workflowProjectionReader.get('branch_review_assignments', sameCaseOpen.id)).toBeUndefined();
 
@@ -1224,7 +1224,7 @@ describe('SQLite workflow projection completeness', () => {
       const revisionBeforeDuplicate = readRevision(fixture);
       const duplicate = { ...nextReminder, id: 'projection-completeness-reminder-exact-duplicate' };
       await expect(store.workflowTransaction((tx) => tx.insertUnique('contract_reminders', duplicate, unique)))
-        .resolves.toEqual({ inserted: false, existing: nextReminder });
+        .resolves.toEqual({ inserted: false, existing: nextReminder, existingRowVersion: 1 });
       expect(readRevision(fixture)).toBe(revisionBeforeDuplicate);
       expect(await store.workflowProjectionReader.get('contract_reminders', duplicate.id)).toBeUndefined();
     } finally {
@@ -1328,7 +1328,7 @@ describe('SQLite workflow projection completeness', () => {
       const revisionBeforeDuplicate = readRevision(fixture);
       const duplicate = { ...reopened, id: 'projection-completeness-history-onboarding-duplicate' };
       await expect(store.workflowTransaction((tx) => tx.insertUnique('onboarding_requests', duplicate, unique)))
-        .resolves.toEqual({ inserted: false, existing: reopened });
+        .resolves.toEqual({ inserted: false, existing: reopened, existingRowVersion: 1 });
       expect(readRevision(fixture)).toBe(revisionBeforeDuplicate);
       expect(await store.workflowProjectionReader.get('onboarding_requests', duplicate.id)).toBeUndefined();
     } finally {
@@ -1814,7 +1814,7 @@ describe('SQLite workflow projection completeness', () => {
         'onboarding_tasks_request_template_unique', {
           requestId: duplicateTask.requestId, templateId: duplicateTask.templateId
         });
-      expect(duplicateResult).toEqual({ inserted: false, existing: taskRows[0] });
+      expect(duplicateResult).toEqual({ inserted: false, existing: taskRows[0], existingRowVersion: 1 });
       expect(await store.workflowProjectionReader.get('onboarding_tasks', duplicateTask.id)).toBeUndefined();
       expect(readRevision(fixture)).toBe(revisionBeforeDuplicate);
     } finally {

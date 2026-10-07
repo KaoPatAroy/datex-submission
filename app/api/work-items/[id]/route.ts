@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { failure } from '@/lib/server/http';
 import { actorSession, checkCsrf, rateLimit, trustedClientIp } from '@/lib/server/session';
 import { getStore } from '@/lib/storage';
+import { withReadSnapshot } from '@/lib/storage/read-snapshot';
 import { createRecipientPolicy } from '@/lib/router/ports/recipient-policy';
 import { applyWorkItemOp, editFieldsSchema, getWorkItemDetail, WORK_ITEM_OPS } from '@/lib/work-items/lifecycle';
 
@@ -13,9 +14,12 @@ const bodySchema = z.object({ op: z.enum(WORK_ITEM_OPS), baseRevision: z.number(
 /** Exact detail (current state + attributable transition history) for the item's creator or current assignee; anyone else gets 404. */
 export async function GET(_request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
-    const store = await getStore(), { actor } = await actorSession(store);
+    const store = await getStore();
+    return await withReadSnapshot(store, async () => {
+    const { actor } = await actorSession(store);
     const { id } = await context.params;
     return NextResponse.json(await getWorkItemDetail(store, actor, id), { headers: { 'Cache-Control': 'no-store' } });
+    });
   } catch (error) { return failure(error); }
 }
 

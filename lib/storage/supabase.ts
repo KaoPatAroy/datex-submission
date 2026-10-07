@@ -2,11 +2,13 @@ import 'server-only';
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { Buffer } from 'node:buffer';
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { DomainError } from '../core/errors';
-import { tables, type Store, type Table, type Transaction } from '../contracts';
+import { tables, type Reader, type Store, type Table, type Transaction } from '../contracts';
 import { getStorageFailureMetadata, markStorageFailure, markMissingTable, missingTableError, StorageReadUnavailableError, supabaseReadUnavailableError, type StorageFailureMetadata, type StorageReadOperation } from './read-error';
 import type { CasBody, WorkflowStore } from '../workflows/contracts';
 import { hasEmptyFilterValue, matchesValidatedRowFilter, type RowFilter, validateRowFilter } from './filters';
+import { waitForRevisionRetry } from './retry-backoff';
 import {
   assertWorkflowUniqueKey,
   getWorkflowProjection,
@@ -30,6 +32,7 @@ const PAGE_SIZE = 1_000;
 const MAX_ROWS = 100_000;
 const MAX_TRANSACTION_CHANGES = 50_000;
 const MAX_TRANSACTION_BYTES = 20 * 1024 * 1024;
+const REVISION_SNAPSHOT_MAX_ATTEMPTS = 2;
 type StoredRecord = { id: string; payload: unknown };
 type WorkflowStoredRecord = {
   id: string;
@@ -63,6 +66,8 @@ class SupabaseStoreError extends Error {
 }
 
 const revisionConflicts = new WeakSet<object>();
+/** Distinguish adapter failures from domain errors thrown by transaction/read callbacks. */
+export function isSupabaseStoreError(error: unknown): boolean { return error instanceof SupabaseStoreError; }
 /** True for a definite rollback caused by another writer advancing the global revision (40001 / unstable revision read). */
 export function isRevisionConflict(error: unknown): boolean {
   return typeof error === 'object' && error !== null && revisionConflicts.has(error);
@@ -297,6 +302,8 @@ export function createSupabaseStore(url: string, serviceKey: string): Store & Wo
 
 /** Adapter-only injection seam for deterministic RPC and revision contract tests. */
 export function createSupabaseStoreFromClient(client: SupabaseClient): Store & WorkflowStore & WorkflowStoreCapability {
+  // Per-request, per-adapter scope. Never share authority/data caches between requests.
+  const readScope = new AsyncLocalStorage<{ workflow: WorkflowTransactionContext; reader: Reader }>();
 
   async function listRows<T>(tableName: Table, dbClient: SupabaseClient, filterInput?: RowFilter, options?: { limit?: number }): Promise<T[]> {
     const table = requireTable(tableName);
@@ -310,7 +317,7 @@ export function createSupabaseStoreFromClient(client: SupabaseClient): Store & W
         let query = dbClient.from(table).select('id,payload');
         if (withMarker) query = query.is('workflow_contract_version', null);
         for (const [key, expected] of Object.entries(filter ?? {})) {
-          const column = `payload->>${key}`;
+          const column = key === 'id' ? 'id' : `payload->>${key}`;
           query = Array.isArray(expected) ? query.in(column, expected) : query.eq(column, expected);
         }
         const pageSize = limit === undefined ? PAGE_SIZE : Math.min(PAGE_SIZE, limit - offset);
@@ -486,12 +493,15 @@ export function createSupabaseStoreFromClient(client: SupabaseClient): Store & W
   }
 
   async function readStableWorkflowRows<T>(query: WorkflowStorageQuery): Promise<ProjectedRow<T>[]> {
-    for (let attempt = 0; attempt < 2; attempt += 1) {
+    const snapshot = readScope.getStore();
+    if (snapshot) return snapshot.workflow.workflowProjectionReader.query<T>(query);
+    for (let attempt = 0; attempt < REVISION_SNAPSHOT_MAX_ATTEMPTS; attempt += 1) {
       const before = await readRevision();
       const rows = await fetchWorkflowRows<T>(query);
       const after = await readRevision();
       if (before === after) return rows;
-      if (attempt === 1) throw new SupabaseStoreError('CONFLICT', 'Supabase workflow read observed a revision change', true);
+      if (attempt === REVISION_SNAPSHOT_MAX_ATTEMPTS - 1) throw new SupabaseStoreError('CONFLICT', 'Supabase workflow read observed a revision change', true);
+      await waitForRevisionRetry(attempt);
     }
     throw new SupabaseStoreError('CONFLICT', 'Supabase workflow read could not obtain a stable revision', true);
   }
@@ -500,6 +510,8 @@ export function createSupabaseStoreFromClient(client: SupabaseClient): Store & W
     async get<T>(table: WorkflowStorageQuery['table'], id: string): Promise<ProjectedRow<T> | undefined> {
       if (!workflowProjectionManifest.has(table)) throw new SupabaseStoreError('STORAGE', 'Workflow projection reader requires a projected table');
       requireWorkflowId(id);
+      const snapshot = readScope.getStore();
+      if (snapshot) return snapshot.workflow.workflowProjectionReader.get<T>(table, id);
       return (await readStableWorkflowRows<T>({ kind: 'ids', table, ids: [id] }))[0];
     },
     async query<T>(query: WorkflowStorageQuery): Promise<ProjectedRow<T>[]> {
@@ -509,7 +521,9 @@ export function createSupabaseStoreFromClient(client: SupabaseClient): Store & W
   };
 
   async function workflowTransaction<T>(work: (tx: WorkflowTransactionContext) => Promise<T>): Promise<T> {
-    for (let retry = 0; retry < 2; retry += 1) {
+    const snapshot = readScope.getStore();
+    if (snapshot) return work(snapshot.workflow);
+    for (let retry = 0; retry < REVISION_SNAPSHOT_MAX_ATTEMPTS; retry += 1) {
       const expectedRevision = await readRevisionForTransactionPreflight();
       let active = true;
       let businessIntent = false;
@@ -518,10 +532,12 @@ export function createSupabaseStoreFromClient(client: SupabaseClient): Store & W
       let stagedBytes = 0;
       const intents: WorkflowIntent[] = [];
       const rowCache = new Map<string, ProjectedRow<unknown> | undefined>();
+      const pendingProjectedRows = new Map<string, Promise<ProjectedRow<unknown>[]>>();
       const queryCache = new Map<string, ProjectedRow<unknown>[]>();
       const metadataByRow = new Map<string, Readonly<Record<string, string | number>>>();
       const legacyRowCache = new Map<string, Record<string, unknown> | undefined>();
       const legacyListCache = new Map<string, Record<string, unknown>[]>();
+      const pendingLegacyReads = new Map<string, Promise<unknown>>();
       const assertActive = (): void => {
         if (!active) throw new SupabaseStoreError('STORAGE', 'Supabase workflow transaction is no longer active');
         if (transactionFailure) throw transactionFailure;
@@ -537,7 +553,9 @@ export function createSupabaseStoreFromClient(client: SupabaseClient): Store & W
           const cached = rowCache.get(key);
           return cached === undefined ? undefined : cloneRow(cached) as ProjectedRow<U>;
         }
-        const cached = await fetchWorkflowRows<U>({ kind: 'ids', table, ids: [id] });
+        let pending = pendingProjectedRows.get(key);
+        if (!pending) { pending = fetchWorkflowRows({ kind: 'ids', table, ids: [id] }); pendingProjectedRows.set(key, pending); }
+        const cached = await pending as ProjectedRow<U>[];
         const row = cached[0];
         rowCache.set(key, row ? cloneRow(row) : undefined);
         return row ? cloneRow(row) as ProjectedRow<U> : undefined;
@@ -631,6 +649,7 @@ export function createSupabaseStoreFromClient(client: SupabaseClient): Store & W
         intents.push(intent);
         stagedBytes = nextBytes;
         queryCache.clear();
+        pendingProjectedRows.clear();
       };
       const internalReader: WorkflowProjectionReader = {
         async get<U>(table: WorkflowStorageQuery['table'], id: string): Promise<ProjectedRow<U> | undefined> {
@@ -646,18 +665,30 @@ export function createSupabaseStoreFromClient(client: SupabaseClient): Store & W
       };
       const internalTx: WorkflowTransactionContext = {
         workflowProjectionReader: internalReader,
-        async list<U>(table: WorkflowStorageQuery['table'], filter?: RowFilter): Promise<U[]> {
+        async list<U>(table: WorkflowStorageQuery['table'], filter?: RowFilter, options?: { limit?: number }): Promise<U[]> {
           assertActive();
           if (workflowProjectionManifest.has(table)) {
             return (await projectedQuery<U>(workflowRowFilterQuery(table, validateRowFilter(filter)))).map((row) => cloneRow(row.body));
           }
           if (!isLegacyTable(table)) throw new SupabaseStoreError('STORAGE', 'Supabase workflow reader received an unsupported table');
           const validatedFilter = validateRowFilter(filter);
-          const cacheKey = JSON.stringify([table, validatedFilter ?? null]);
+          const cacheKey = JSON.stringify([table, validatedFilter ?? null, options ?? null]);
           let rows = legacyListCache.get(cacheKey);
           if (!rows) {
-            rows = await listRows<Record<string, unknown>>(table, client, validatedFilter);
+            const pendingKey = `list:${cacheKey}`;
+            let pending = pendingLegacyReads.get(pendingKey);
+            if (!pending) {
+              pending = listRows<Record<string, unknown>>(table, client, validatedFilter, options);
+              pendingLegacyReads.set(pendingKey, pending);
+            }
+            rows = await pending as Record<string, unknown>[];
             legacyListCache.set(cacheKey, cloneRow(rows));
+            for (const row of rows) legacyRowCache.set(rowKey(table, row.id as string), cloneRow(row));
+            // A complete id-filtered batch proves absence as well as presence.
+            if (!options?.limit && validatedFilter && Object.keys(validatedFilter).length === 1 && validatedFilter.id) {
+              const ids = Array.isArray(validatedFilter.id) ? validatedFilter.id : [validatedFilter.id];
+              for (const id of ids) if (!legacyRowCache.has(rowKey(table, id))) legacyRowCache.set(rowKey(table, id), undefined);
+            }
           }
           return cloneRow(rows) as U[];
         },
@@ -670,11 +701,16 @@ export function createSupabaseStoreFromClient(client: SupabaseClient): Store & W
             const cached = legacyRowCache.get(cacheKey);
             return cached === undefined ? undefined : cloneRow(cached) as U;
           }
-          const row = await getRow<Record<string, unknown>>(table, id, client);
+          let pending = pendingLegacyReads.get(cacheKey);
+          if (!pending) {
+            pending = getRow<Record<string, unknown>>(table, id, client);
+            pendingLegacyReads.set(cacheKey, pending);
+          }
+          const row = await pending as Record<string, unknown> | undefined;
           legacyRowCache.set(cacheKey, row ? cloneRow(row) : undefined);
           return row === undefined ? undefined : cloneRow(row) as U;
         },
-        async insertUnique<U extends { id: string }>(table: WorkflowStorageQuery['table'], row: U, key: { constraint: string; values: Record<string, string | number> }): Promise<{ inserted: true; row: U } | { inserted: false; existing: U }> {
+        async insertUnique<U extends { id: string }>(table: WorkflowStorageQuery['table'], row: U, key: { constraint: string; values: Record<string, string | number> }): Promise<{ inserted: true; row: U } | { inserted: false; existing: U; existingRowVersion?: number }> {
           assertActive();
           businessIntent = true;
           if (!workflowProjectionManifest.has(table)) throw new SupabaseStoreError('STORAGE', 'Supabase workflow writer received an unsupported table', true);
@@ -709,7 +745,7 @@ export function createSupabaseStoreFromClient(client: SupabaseClient): Store & W
                 throw new SupabaseStoreError('CONFLICT', 'Workflow unique key conflicts with different immutable data', true);
               }
             }
-            return { inserted: false, existing: existing[0].body };
+            return { inserted: false, existing: existing[0].body, existingRowVersion: existing[0].rowVersion };
           }
           const intent: WorkflowIntent = {
             kind: 'insert_unique',
@@ -785,7 +821,10 @@ export function createSupabaseStoreFromClient(client: SupabaseClient): Store & W
           return value;
         }
         if (await readRevision() !== expectedRevision) {
-          if (!businessIntent && retry === 0) continue;
+          if (!businessIntent && retry < REVISION_SNAPSHOT_MAX_ATTEMPTS - 1) {
+            await waitForRevisionRetry(retry);
+            continue;
+          }
           throw revisionConflict('Supabase workflow transaction conflicted with a concurrent write');
         }
         return value;
@@ -801,7 +840,64 @@ export function createSupabaseStoreFromClient(client: SupabaseClient): Store & W
     adapter: 'supabase',
     workflowContractVersion: 2,
     workflowProjectionReader,
+    async readSnapshot<T>(work: () => Promise<T>): Promise<T> {
+      if (readScope.getStore()) return work();
+      return workflowTransaction(async tx => {
+        const rejectWrite = async (): Promise<never> => { throw new SupabaseStoreError('STORAGE', 'Writes are forbidden in a read snapshot', true); };
+        const snapshot: WorkflowTransactionContext = { ...tx, insertUnique: rejectWrite, compareAndSwap: rejectWrite };
+        let active = true;
+        const reads = new Map<string, Promise<unknown>>();
+        const rows = new Map<string, unknown>();
+        const selections: { table: Table; filter?: RowFilter; rows: { id: string }[] }[] = [];
+        const key = (table: Table, id: string) => JSON.stringify([table, id]);
+        const assertActive = () => { if (!active) throw new SupabaseStoreError('STORAGE', 'Read snapshot is no longer active', true); };
+        const reader: Reader = {
+          async list<U>(table: Table, filter?: RowFilter, options?: { limit?: number }): Promise<U[]> {
+            assertActive();
+            const validated = validateRowFilter(filter);
+            const queryKey = JSON.stringify(['list', table, validated ?? null, options ?? null]);
+            let pending = reads.get(queryKey);
+            if (!pending) {
+              const covering = selections.find(selection => selection.table === table && Object.entries(selection.filter ?? {}).every(([field, parent]) => {
+                const child = validated?.[field];
+                if (child === undefined) return false;
+                const allowed = Array.isArray(parent) ? parent : [parent];
+                return (Array.isArray(child) ? child : [child]).every(value => allowed.includes(value));
+              }));
+              if (covering) {
+                const selected = covering.rows.filter(row => matchesValidatedRowFilter(row, validated));
+                pending = Promise.resolve(options?.limit && Number.isSafeInteger(options.limit) && options.limit > 0 ? selected.slice(0, options.limit) : selected);
+                reads.set(queryKey, pending);
+              }
+            }
+            if (!pending) { pending = listRows(table, client, validated, options); reads.set(queryKey, pending); }
+            const result = await pending as { id: string }[];
+            const limit = Number.isSafeInteger(options?.limit) && options!.limit! > 0 ? options!.limit : undefined;
+            if (limit === undefined || result.length < limit) selections.push({ table, filter: validated, rows: result });
+            for (const row of result) rows.set(key(table, row.id), row);
+            if (!options?.limit && validated && Object.keys(validated).length === 1 && validated.id) {
+              for (const id of Array.isArray(validated.id) ? validated.id : [validated.id]) if (!rows.has(key(table, id))) rows.set(key(table, id), undefined);
+            }
+            return cloneRow(result) as U[];
+          },
+          async get<U>(table: Table, id: string): Promise<U | undefined> {
+            assertActive();
+            const rowKey = key(table, id);
+            if (rows.has(rowKey)) { const cached = rows.get(rowKey); return cached === undefined ? undefined : cloneRow(cached) as U; }
+            let pending = reads.get(rowKey);
+            if (!pending) { pending = getRow(table, id, client); reads.set(rowKey, pending); }
+            const row = await pending;
+            rows.set(rowKey, row);
+            return row === undefined ? undefined : cloneRow(row) as U;
+          },
+        };
+        try { return await readScope.run({ workflow: snapshot, reader }, work); }
+        finally { active = false; }
+      });
+    },
     async list<T>(table: WorkflowStorageQuery['table'], filter?: RowFilter, options?: { limit?: number }): Promise<T[]> {
+      const snapshot = readScope.getStore();
+      if (snapshot) return isLegacyTable(table) ? snapshot.reader.list<T>(table, filter, options) : snapshot.workflow.list<T>(table, filter);
       if (!isLegacyTable(table)) {
         if (!workflowProjectionManifest.has(table)) throw new SupabaseStoreError('STORAGE', 'Supabase store received an unsupported table');
         return (await readStableWorkflowRows<T>(workflowRowFilterQuery(table, validateRowFilter(filter)))).map((row) => row.body);
@@ -809,6 +905,8 @@ export function createSupabaseStoreFromClient(client: SupabaseClient): Store & W
       return listRows<T>(table, client, filter, options);
     },
     async get<T>(table: WorkflowStorageQuery['table'], id: string): Promise<T | undefined> {
+      const snapshot = readScope.getStore();
+      if (snapshot) return isLegacyTable(table) ? snapshot.reader.get<T>(table, id) : snapshot.workflow.get<T>(table, id);
       if (!isLegacyTable(table)) {
         if (!workflowProjectionManifest.has(table)) throw new SupabaseStoreError('STORAGE', 'Supabase store received an unsupported table');
         requireWorkflowId(id);
@@ -817,6 +915,11 @@ export function createSupabaseStoreFromClient(client: SupabaseClient): Store & W
       return getRow<T>(table, id, client);
     },
     async transaction<T>(work: (tx: Transaction) => Promise<T>): Promise<T> {
+      const snapshot = readScope.getStore();
+      if (snapshot) {
+        const rejectWrite = async (): Promise<never> => { throw new SupabaseStoreError('STORAGE', 'Writes are forbidden in a read snapshot', true); };
+        return work({ ...snapshot.reader, put: rejectWrite, remove: rejectWrite });
+      }
       const expectedRevision = await readRevisionForTransactionPreflight();
       let active = true;
       let commitDispatched = false;

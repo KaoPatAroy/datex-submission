@@ -1,3 +1,4 @@
+import {withReadSnapshot} from '@/lib/storage/read-snapshot';
 import { NextRequest, NextResponse } from 'next/server';
 import { failure } from '@/lib/server/http';
 import { actorSession } from '@/lib/server/session';
@@ -17,10 +18,10 @@ const SCOPES: readonly WorkItemScope[] = ['created', 'assigned', 'tickets'];
  */
 export async function GET(request: NextRequest) {
   try {
-    const store = await getStore(), { actor } = await actorSession(store);
+    const store = await getStore();return await withReadSnapshot(store,async()=>{const  { actor } = await actorSession(store);
     const params = request.nextUrl.searchParams, scope = params.get('scope') as WorkItemScope | null, needle = params.get('q')?.slice(0, 80);
     const page = await listManagedWorkItemsPage(store, actor, { ...pageInputFrom(params, JSON.stringify(['work-items', actor.id, scope && SCOPES.includes(scope) ? scope : 'created', params.get('archived') === '1', params.get('view') === 'archived', needle ?? ''])), scope: scope && SCOPES.includes(scope) ? scope : 'created',
       includeArchived: params.get('archived') === '1', archivedOnly: params.get('view') === 'archived', ...(needle ? { needle } : {}) });
     return NextResponse.json({ items: page.items, total: page.total, nextCursor: page.nextCursor }, { headers: { 'Cache-Control': 'no-store' } });
-  } catch (error) { return failure(error); }
+  });} catch (error) { return failure(error); }
 }

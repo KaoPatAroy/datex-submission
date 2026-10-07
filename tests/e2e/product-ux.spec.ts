@@ -214,7 +214,7 @@ test('dashboard detail hides version jargon and only offers supported Ticket pre
     await page.screenshot({ path: testInfo.outputPath(`dashboard-ticket-available-${size.width}.png`) });
     await ticket.click();
     await page.getByRole('button', { name: 'เติมคำขอในบทสนทนา', exact: true }).click();
-    await expect(page.getByRole('textbox', { name: 'ข้อความถึง DaTex' })).toHaveValue(`ช่วยเตรียม Task ติดตามสาขาที่ยอดขายต่ำกว่าเป้า จาก Dashboard “${dashboard.spec.title}”`);
+    await expect(page.getByRole('textbox', { name: 'ข้อความถึง DaTex' })).toHaveValue(`${ticketPrompt} จาก Dashboard “${dashboard.spec.title}”`);
     await expect(page.getByRole('textbox', { name: 'ข้อความถึง DaTex' })).toBeFocused();
     expect(submissions).toBe(0);
     await expect.poll(() => page.evaluate(() => sessionStorage.getItem('biztania:dashboard-prefill:v1'))).toBeNull();

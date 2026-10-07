@@ -156,9 +156,9 @@ test('composer sends to the selected conversation after a full reload', async ({
   await page.reload();
   const row = page.locator(`[data-conversation-id="${conversationId}"]`);
   await expect(row).toBeVisible();
-  await row.getByRole('button', { name: 'บทสนทนาทดสอบหลังโหลดใหม่', exact: true }).click();
+  await row.getByRole('button', { name: /^บทสนทนาทดสอบหลังโหลดใหม่(?:\s|$)/ }).click();
   await page.reload();
-  await expect(row.getByRole('button', { name: 'บทสนทนาทดสอบหลังโหลดใหม่', exact: true })).toHaveAttribute('aria-current', 'page');
+  await expect(row.getByRole('button', { name: /^บทสนทนาทดสอบหลังโหลดใหม่(?:\s|$)/ })).toHaveAttribute('aria-current', 'page');
 
   let requestBody: { conversationId?: string } | undefined;
   await page.route('**/api/chat/stream', async route => {

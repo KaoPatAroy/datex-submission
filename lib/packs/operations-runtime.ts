@@ -302,7 +302,8 @@ function sameIds(actual: Array<{ id: string }>, expected: Array<{ id: string }>)
   return actualIds.every((id, index) => id === expectedIds[index]);
 }
 
-async function verifyDemo(context: TargetContext, payload: DemoUpdatePayload): Promise<boolean> {
+export async function verifyDemo(context: Pick<TargetContext, 'reader' | 'businessDate' | 'operationKey' | 'executedAt'>, payload: DemoUpdatePayload): Promise<boolean> {
+  if (!validTimestamp(context.executedAt)) return false;
   const seed = createSeedData(context.businessDate);
   const expectedInventoryRows = seed.inventory_snapshots.filter(row => row.date === context.businessDate);
   const expectedIncidentRows = seed.incidents.filter(row => row.date === context.businessDate);
@@ -317,10 +318,9 @@ async function verifyDemo(context: TargetContext, payload: DemoUpdatePayload): P
   if (!sameIds(actualInventory, expectedInventoryRows) || !sameIds(actualIncidents, expectedIncidentRows)) return false;
 
   const operationKey = context.operationKey;
-  if (actualInventory.some(row => row.operationKey !== operationKey || !validTimestamp(row.updatedAt))) return false;
-  if (actualIncidents.some(row => row.operationKey !== operationKey || !validTimestamp(row.updatedAt))) return false;
-  const writeTimes = new Set([...actualInventory, ...actualIncidents].map(row => new Date(row.updatedAt).getTime()));
-  if (writeTimes.size !== 1) return false;
+  // Compare the canonical writer timestamp exactly; Date parsing discards sub-millisecond drift.
+  if (actualInventory.some(row => row.operationKey !== operationKey || row.updatedAt !== context.executedAt)) return false;
+  if (actualIncidents.some(row => row.operationKey !== operationKey || row.updatedAt !== context.executedAt)) return false;
 
   const expectedInventoryById = new Map(expectedInventoryRows.map(row => [row.id, expectedInventory(row, payload.scenario)]));
   const expectedIncidentById = new Map(expectedIncidentRows.map(row => [row.id, expectedIncident(row, payload.scenario)]));
@@ -459,7 +459,7 @@ const demoAction = defineAction({
         operationKey: context.operationKey
       });
     }
-    return { recordId: context.recordId };
+    return { recordId: context.recordId, executedAt: timestamp };
   },
   verify: verifyDemo,
   visible: async context => {

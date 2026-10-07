@@ -6,8 +6,8 @@ import { applyChartView } from '@/lib/visualization/geometry';
 import { displaySuitability, factValue } from '@/lib/visualization/presentation';
 import { chartCategoryLabel, chartSeriesLabel } from '@/lib/visualization/chart-display-labels';
 import {
-  BarFamily, ComboFamily, EMPTY_CHART_STATE, HeatmapFamily, LineFamily, MetricFamily, PieFamily, ScatterFamily, TreemapFamily,
-  type ChartState, type FamilyProps,
+  BarFamily, ComboFamily, EMPTY_CHART_STATE, HeatmapFamily, LineFamily, MetricFamily, PieFamily, ScatterFamily, SeriesMarker, TreemapFamily,
+  patternFill, seriesDash, seriesStyle, type ChartState, type FamilyProps,
 } from './artifact-families';
 import styles from './artifact-preview.module.css';
 
@@ -65,7 +65,7 @@ export function ArtifactChart({ spec, labels, state: controlled, onState, onDril
   const duration = reduced ? 0 : spec.animation.durationMs;
   const onSelect = (category: string) => { if (!has('select_point')) return; update(current => ({ ...current, selected: current.selected === category ? null : category })); setPoint(''); };
   const onHover = (category: string | null) => update(current => ({ ...current, hover: category }));
-  const family: FamilyProps = { id, spec: view, labels, state, onSelect, onHover };
+  const family: FamilyProps = { id, spec: view, labels, state, onSelect, onHover, seriesOrder: series, categoryOrder: spec.domain };
   const domainLabel = (index: number) => label(spec.domain[index] ?? '');
   const range = state.range ?? [0, Math.max(0, spec.domain.length - 1)];
   const shown = state.selected !== null ? view.points.filter(p => p.category === state.selected) : view.points.filter(p => p.category === state.hover);
@@ -104,13 +104,13 @@ export function ArtifactChart({ spec, labels, state: controlled, onState, onDril
       {spec.primitive === 'treemap' && <TreemapFamily {...family} />}
       {spec.primitive === 'metric' && <MetricFamily {...family} />}
     </div>
-    {series.length > 0 && !['pie', 'donut', 'treemap', 'metric', 'heatmap'].includes(spec.primitive) && <ul className={styles.legend} aria-label={text('ชุดข้อมูลในกราฟ', 'Chart series')}>{series.map((seriesId, index) => {
+    {series.length > 0 && !['pie', 'donut', 'treemap', 'metric', 'heatmap', 'scatter'].includes(spec.primitive) && <ul className={styles.legend} aria-label={text('ชุดข้อมูลในกราฟ', 'Chart series')}>{series.map((seriesId, index) => {
       const off = state.hidden.includes(seriesId);
-      const swatch = <svg width="28" height="16" aria-hidden="true">{spec.primitive === 'bar' || (spec.primitive === 'combo' && !spec.lineSeries?.includes(seriesId))
-        ? <rect x="1" y="1" width="24" height="14" className={styles.bar} fill={`url(#${id}-series-${index % 8})`} />
-        : <><line x1="0" x2="28" y1="8" y2="8" className={styles.line} strokeDasharray={['none', '8 3', '2 3', '10 3 2 3', '1 3', '12 5', '5 2 1 2', '3 6'][index % 8]} />
+      const swatch = <svg width="28" height="16" aria-hidden="true" style={seriesStyle(index)}>{spec.primitive === 'bar' || (spec.primitive === 'combo' && !spec.lineSeries?.includes(seriesId))
+        ? <rect x="1" y="1" width="24" height="14" className={styles.bar} fill={patternFill(id, index)} />
+        : <><line x1="0" x2="28" y1="8" y2="8" className={styles.line} strokeDasharray={seriesDash(index)} />
           {/* Line series are drawn as points (joined only on a time axis): the key shows the same point. */}
-          <circle cx="14" cy="8" r="4" className={styles.point} /></>}</svg>;
+          <SeriesMarker index={index} x={14} y={8} /></>}</svg>;
       return <li key={seriesId}>{has('legend_toggle') && series.length > 1
         ? <button type="button" className={styles.legendButton} aria-pressed={!off} data-legend-series={index}
           onClick={() => update(current => ({ ...current, hidden: current.hidden.includes(seriesId) ? current.hidden.filter(s => s !== seriesId) : series.length - current.hidden.length > 1 ? [...current.hidden, seriesId] : current.hidden }))}>

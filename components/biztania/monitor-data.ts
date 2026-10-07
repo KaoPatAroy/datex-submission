@@ -1,5 +1,5 @@
 export interface MonitorPage<TMonitor = unknown> { monitors: TMonitor[]; total: number; nextCursor: string | null }
-export const MONITOR_LOAD_ERROR_COPY = 'โหลดรายการ Monitor ไม่สำเร็จ กดโหลดใหม่เพื่อลองอีกครั้ง';
+export const MONITOR_LOAD_ERROR_COPY = 'โหลดรายการ Monitor ไม่สำเร็จ กด “ลองอีกครั้ง” เพื่อตรวจสถานะล่าสุด';
 export const MONITOR_AFTER_MUTATION_LOAD_ERROR_COPY = 'โหลดสถานะล่าสุดไม่สำเร็จ — การเปลี่ยนแปลงล่าสุดอาจบันทึกแล้ว โปรดตรวจสอบก่อนทำซ้ำ แล้วลองอีกครั้ง';
 
 export async function requestMonitorPage<TMonitor = unknown>(url: string, options: { fetcher?: typeof fetch; signal?: AbortSignal; timeoutMs?: number } = {}): Promise<MonitorPage<TMonitor> | null> {

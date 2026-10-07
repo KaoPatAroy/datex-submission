@@ -14,7 +14,7 @@ const intent: DashboardIntent = {
 describe('Dashboard task intent', () => {
   it('adds the chosen person and due date to an editable natural-language request', () => {
     const result = dashboardIntentRequest({ ...intent, taskOptions: { assigneeId: 'user-east', dueDate: '2026-10-12' } }, workspace, 'user-exec');
-    expect(result?.prompt).toBe('ช่วยเตรียม Task ติดตามสาขาที่ยอดขายต่ำกว่าเป้า จาก Dashboard “ยอดขายตะวันออก” มอบหมายให้ ผู้จัดการภาคตะวันออก กำหนดส่งวันที่ 2026-10-12');
+    expect(result?.prompt).toBe(`${intent.prompt} จาก Dashboard “ยอดขายตะวันออก” มอบหมายให้ ผู้จัดการภาคตะวันออก กำหนดส่งวันที่ 2026-10-12`);
     expect(result?.prompt).not.toContain('user-east');
     expect(result?.prompt).not.toContain(intent.dashboardId);
   });
@@ -29,7 +29,7 @@ describe('Dashboard task intent', () => {
 
   it('keeps self assignment and an omitted date as the executor defaults', () => {
     const result = dashboardIntentRequest({ ...intent, taskOptions: { assigneeId: 'user-exec' } }, workspace, 'user-exec');
-    expect(result?.prompt).toBe('ช่วยเตรียม Task ติดตามสาขาที่ยอดขายต่ำกว่าเป้า จาก Dashboard “ยอดขายตะวันออก”');
+    expect(result?.prompt).toBe(`${intent.prompt} จาก Dashboard “ยอดขายตะวันออก”`);
     expect(result?.targets).toEqual([{ kind: 'dashboard', id: intent.dashboardId }]);
   });
 
@@ -54,17 +54,33 @@ describe('Dashboard task intent', () => {
       taskAssigneeOptions: [{ id: 'user-east-2', label: 'สมชาย ใจดี (ผู้จัดการภาคตะวันออก) — บัญชี 2' }],
     };
     const result = dashboardIntentRequest({ ...intent, taskOptions: { assigneeId: 'user-east-2' } }, current, 'user-exec');
-    expect(result?.prompt).toBe('ช่วยเตรียม Task ติดตามสาขาที่ยอดขายต่ำกว่าเป้า จาก Dashboard “ยอดขายตะวันออก” มอบหมายให้ สมชาย ใจดี (ผู้จัดการภาคตะวันออก) — บัญชี 2');
+    expect(result?.prompt).toBe(`${intent.prompt} จาก Dashboard “ยอดขายตะวันออก” มอบหมายให้ สมชาย ใจดี (ผู้จัดการภาคตะวันออก) — บัญชี 2`);
   });
 
   it('allows only self when the workspace has no assignee options field', () => {
     const current = { profiles, taskAssigneeOptions: undefined };
     expect(dashboardIntentRequest({ ...intent, taskOptions: { assigneeId: 'user-east' } }, current, 'user-exec')).toBeNull();
-    expect(dashboardIntentRequest({ ...intent, taskOptions: { assigneeId: 'user-exec' } }, current, 'user-exec')?.prompt).toBe('ช่วยเตรียม Task ติดตามสาขาที่ยอดขายต่ำกว่าเป้า จาก Dashboard “ยอดขายตะวันออก”');
+    expect(dashboardIntentRequest({ ...intent, taskOptions: { assigneeId: 'user-exec' } }, current, 'user-exec')?.prompt).toBe(`${intent.prompt} จาก Dashboard “ยอดขายตะวันออก”`);
   });
 
   it('rejects an invalid date in a restored handoff', () => {
     expect(dashboardIntentRequest({ ...intent, taskOptions: { dueDate: '2026-02-30' } }, workspace, 'user-exec')).toBeNull();
+  });
+
+  it('preserves the intent for a non-sales task and keeps composer prefill free of JSON and internal ids', () => {
+    const result = dashboardIntentRequest({ ...intent, prompt: 'ช่วยเตรียมงานติดตามปัญหาสต็อก', taskOptions: { assigneeId: 'user-east', dueDate: '2026-10-12' } }, workspace, 'user-exec');
+    expect(result?.prompt).toBe('ช่วยเตรียมงานติดตามปัญหาสต็อก จาก Dashboard “ยอดขายตะวันออก” มอบหมายให้ ผู้จัดการภาคตะวันออก กำหนดส่งวันที่ 2026-10-12');
+    expect(result?.prompt).not.toContain('{');
+    expect(result?.prompt).not.toContain('ตัวเลือกที่ยืนยันจากระบบ');
+    expect(result?.prompt).not.toContain('user-east');
+  });
+
+  it('looks up the selected assignee by id when account labels overlap', () => {
+    const current = { taskAssigneeOptions: [{ id: 'account-1', label: 'ผู้จัดการ — บัญชี 1' }, { id: 'account-2', label: 'ผู้จัดการ — บัญชี 2' }] };
+    const result = dashboardIntentRequest({ ...intent, taskOptions: { assigneeId: 'account-2' } }, current, 'user-exec');
+    expect(result?.prompt).toContain('มอบหมายให้ ผู้จัดการ — บัญชี 2');
+    expect(result?.prompt).not.toContain('บัญชี 1');
+    expect(result?.prompt).not.toContain('account-2');
   });
 
   it('keeps share wording and target independent of task controls', () => {

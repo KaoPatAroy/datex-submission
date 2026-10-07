@@ -1,3 +1,4 @@
+import {withReadSnapshot} from '@/lib/storage/read-snapshot';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getStore } from '@/lib/storage';
@@ -56,13 +57,13 @@ async function limitMutation(request: NextRequest, sessionId: string, store: Awa
 
 export async function GET(request: NextRequest, { params }: RouteContext) {
   try {
-    const store = await getStore();
+    const store = await getStore();return await withReadSnapshot(store,async()=>{
     const { actor } = await actorSession(store);
     const { id: conversationId } = await params;
     const page = readMessagePage(request);
     const conversation = await getOwnedConversation(store, actor.id, conversationId);
     // Reuse the workspace's current-permission and source-scope message sanitizer.
-    const workspace = await new ConciergeService(store).getWorkspace(actor);
+    const workspace = await new ConciergeService(store).getConversationHistory(actor,conversationId);
     const safeMessages = workspace.messages
       .filter((message) => message.actorId === actor.id && message.conversationId === conversationId)
       .sort((left, right) => {
@@ -115,7 +116,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
       }
     };
     return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } });
-  } catch (error) {
+  });} catch (error) {
     return failure(error);
   }
 }

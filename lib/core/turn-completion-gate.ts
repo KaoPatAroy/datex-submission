@@ -4,10 +4,11 @@ import {
   directoryIdentitySchema, instantSchema, persistedConversationMessageSchema,
   type PersistedConversationMessage,
 } from '../workflows/contracts';
-import { turnFailureReasonSchema } from '../contracts';
+import { turnFailureReasonSchema, type Reader } from '../contracts';
 import { assistantMessageId, type AssistantAnchorContent } from './conversation-actions';
 import { invariant } from './errors';
 import { digest } from './utils';
+import { listByIds } from '../storage/batch';
 
 const identifier = directoryIdentitySchema.shape.id;
 const digestSchema = z.string().regex(/^[a-f0-9]{64}$/);
@@ -132,6 +133,18 @@ function exactMessage(message: PersistedConversationMessage, tuple: TurnCompleti
 }
 function sameIds(left: readonly string[], right: readonly string[]): boolean {
   return digest([...left].sort()) === digest([...right].sort());
+}
+
+/** Prime request-local caches without changing any completed-turn validation/redaction. */
+export async function prefetchCompletedTurns(reader: Reader, tuples: readonly TurnCompletionTuple[]): Promise<void> {
+  const batches = (table: 'tool_executions' | 'conversation_messages', ids: readonly string[]) => listByIds<unknown>(reader, table, ids);
+  if (!tuples.length) return;
+  const completions = await batches('tool_executions', tuples.map(tuple => turnCompletionId(tuple)));
+  const records = completions.flatMap(row => { const parsed = turnCompletionRecordSchema.safeParse(row); return parsed.success ? [parsed.data] : []; });
+  await Promise.all([
+    batches('tool_executions', records.flatMap(row => row.requestLedgerId ? [row.requestLedgerId] : [])),
+    batches('conversation_messages', records.flatMap(row => [...(row.assistantMessageId ? [row.assistantMessageId] : []), ...(row.origin === 'chat' ? [row.turnId] : [])])),
+  ]);
 }
 
 /** Internal recovery may read provisional anchors separately; public callers use only this completed proof. */

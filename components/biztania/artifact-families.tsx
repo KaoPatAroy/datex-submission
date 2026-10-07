@@ -1,6 +1,6 @@
 'use client';
 
-import type { KeyboardEvent } from 'react';
+import type { CSSProperties, KeyboardEvent } from 'react';
 import type { ArtifactLabels, SafeVisualizationSpec } from '@/lib/visualization/contracts';
 import { chartCategoryLabel, chartSeriesLabel } from '@/lib/visualization/chart-display-labels';
 import { areaGeometry, comboGeometry, heatmapGeometry, pieGeometry, scatterGeometry, treemapGeometry } from '@/lib/visualization/geometry';
@@ -14,20 +14,48 @@ export const EMPTY_CHART_STATE: ChartState = { selected: null, hover: null, hidd
 export interface FamilyProps {
   id: string; spec: SafeVisualizationSpec; labels?: ArtifactLabels; state: ChartState;
   onSelect: (category: string) => void; onHover: (category: string | null) => void;
+  /** Original identities, before the chart view filters or reorders the data. */
+  seriesOrder?: readonly string[]; categoryOrder?: readonly string[];
 }
 const DASH = ['none', '8 3', '2 3', '10 3 2 3', '1 3', '12 5', '5 2 1 2', '3 6'];
+export const seriesDash = (index: number) => DASH[Math.max(0, index) % DASH.length];
+// Circle, square, triangle, diamond, plus, cross, inverted triangle and star.
+const MARKER_PATHS = [
+  'M4 0A4 4 0 1 0-4 0A4 4 0 1 0 4 0Z',
+  'M-4 -4H4V4H-4Z',
+  'M0 -5L4 3H-4Z',
+  'M0 -5L4 0L0 5L-4 0Z',
+  'M-1.5 -4H1.5V-1.5H4V1.5H1.5V4H-1.5V1.5H-4V-1.5H-1.5Z',
+  'M-4 -2L-2 -4L0 -2L2 -4L4 -2L2 0L4 2L2 4L0 2L-2 4L-4 2L-2 0Z',
+  'M-4 -3H4L0 5Z',
+  'M0 -5L1.5 -1.5L5 -1.5L2 1L3 4.5L0 2.5L-3 4.5L-2 1L-5 -1.5L-1.5 -1.5Z',
+];
 const PATTERN_PATHS = ['', 'M0 12L12 0', 'M0 3H12M0 9H12', 'M3 0V12M9 0V12', 'M0 0L12 12', 'M0 6H12M6 0V12', 'M0 0L12 12M0 12L12 0', 'M0 0H12V12H0Z'];
 const label = (spec: SafeVisualizationSpec, labels: ArtifactLabels | undefined, category: string) => chartCategoryLabel(spec, labels, category);
 const seriesLabel = (spec: SafeVisualizationSpec, labels: ArtifactLabels | undefined, seriesId: string) => chartSeriesLabel(spec, labels, seriesId);
 
-/** Blue pattern fills (not colour alone) so series stay distinguishable at reduced contrast. */
+/** The eight colours wrap together with the existing eight patterns/dashes. */
+export const seriesStyle = (index: number): CSSProperties => ({
+  ['--chart-series' as string]: `var(--series-${Math.max(0, index) % 8 + 1})`,
+  ['--series-pattern' as string]: [0, 2, 6].includes(Math.max(0, index) % 8) ? 'var(--surface)' : 'var(--ink)',
+});
+
+/** The same canonical marker in the plot and legend remains identifiable without a connecting line. */
+export function SeriesMarker({ index, x = 0, y = 0, title }: { index: number; x?: number; y?: number; title?: string }) {
+  return <path d={MARKER_PATHS[Math.max(0, index) % MARKER_PATHS.length]} transform={`translate(${x} ${y})`} className={styles.point} style={seriesStyle(index)}>
+    {title && <title>{title}</title>}
+  </path>;
+}
+
+/** Contrasting patterns over each series colour keep colour from being the only distinction. */
 export function Patterns({ id, count }: { id: string; count: number }) {
-  return <defs>{Array.from({ length: Math.min(count, 8) }, (_, index) => <pattern key={index} id={`${id}-series-${index}`} patternUnits="userSpaceOnUse" width="12" height="12">
+  return <defs>{Array.from({ length: Math.min(count, 8) }, (_, index) => <pattern key={index} id={`${id}-series-${index}`} patternUnits="userSpaceOnUse" width="12" height="12" style={seriesStyle(index)}>
     <rect width="12" height="12" className={index === 0 ? styles.patternInk : styles.patternBackground} />
     {index > 0 && <path className={styles.patternStroke} d={PATTERN_PATHS[index]} />}
   </pattern>)}</defs>;
 }
-const patternFill = (id: string, index: number) => `url(#${id}-series-${index % 8})`;
+export const patternFill = (id: string, index: number) => `url(#${id}-series-${Math.max(0, index) % 8})`;
+const seriesOrderOf = (props: FamilyProps) => props.seriesOrder ?? [...new Set(props.spec.points.map(point => point.series))];
 
 /** A focusable, keyboard-operable mark: Enter/Space select, hover/focus show the exact value. */
 function markProps(props: FamilyProps, category: string, text: string, interactive: boolean) {
@@ -64,14 +92,14 @@ function ValueAxis({ marks, baseline, labels }: { marks: readonly { value: numbe
 }
 
 export function BarFamily(props: FamilyProps) {
-  const { id, spec, labels } = props, geometry = chartGeometry(spec), series = [...new Set(spec.points.map(p => p.series))], interactive = interactiveOf(spec);
+  const { id, spec, labels } = props, geometry = chartGeometry(spec), series = seriesOrderOf(props), interactive = interactiveOf(spec);
   return <svg viewBox={`0 0 ${geometry.width} ${geometry.height}`} className={styles.chart} style={{ minWidth: geometry.width }} aria-hidden={interactive ? undefined : true}>
     <Patterns id={id} count={series.length} />
     <line x1="35" x2={geometry.width - 30} y1={geometry.baseline} y2={geometry.baseline} className={styles.axis} />
     <ValueAxis marks={geometry.bars} baseline={geometry.baseline} labels={labels} />
     {geometry.bars.map(bar => bar.y === null ? null : <g key={bar.claimId} style={{ transform: `translate(${bar.x}px, 0px)` }}
       {...markProps(props, bar.category, `${label(spec, labels, bar.category)} · ${seriesLabel(spec, labels, bar.series)}: ${factValue(bar, labels)}`, interactive)}>
-      <rect x="0" y={Math.min(bar.y, geometry.baseline)} width={bar.width} height={Math.abs(bar.y - geometry.baseline)} className={`${styles.bar} ${styles.grow}`} fill={patternFill(id, series.indexOf(bar.series))}>
+      <rect x="0" y={Math.min(bar.y, geometry.baseline)} width={bar.width} height={Math.abs(bar.y - geometry.baseline)} className={`${styles.bar} ${styles.grow}`} style={seriesStyle(series.indexOf(bar.series))} fill={patternFill(id, series.indexOf(bar.series))}>
         <title>{label(spec, labels, bar.category)} · {seriesLabel(spec, labels, bar.series)}: {factValue(bar, labels)}</title>
       </rect></g>)}
     {geometry.ticks.map(tick => <text key={tick.category} x={tick.x} y="207" textAnchor="middle" className={styles.label}>{label(spec, labels, tick.category)}</text>)}
@@ -79,24 +107,24 @@ export function BarFamily(props: FamilyProps) {
 }
 
 export function LineFamily(props: FamilyProps & { area?: boolean }) {
-  const { id, spec, labels, area } = props, geometry = areaGeometry(spec), series = [...new Set(spec.points.map(p => p.series))], interactive = interactiveOf(spec);
+  const { id, spec, labels, area } = props, geometry = areaGeometry(spec), series = seriesOrderOf(props), interactive = interactiveOf(spec);
   return <svg viewBox={`0 0 ${geometry.width} ${geometry.height}`} className={styles.chart} style={{ minWidth: geometry.width }} aria-hidden={interactive ? undefined : true}>
     <Patterns id={id} count={series.length} />
     <line x1="35" x2={geometry.width - 30} y1={geometry.baseline} y2={geometry.baseline} className={styles.axis} />
     <ValueAxis marks={geometry.bars} baseline={geometry.baseline} labels={labels} />
-    {area && geometry.runs.map(run => <path key={`${run.series}-${run.points[0].claimId}`} d={run.path} className={styles.areaFill} />)}
+    {area && geometry.runs.map(run => <path key={`${run.series}-${run.points[0].claimId}`} d={run.path} className={styles.areaFill} style={seriesStyle(series.indexOf(run.series))} />)}
     {geometry.segments.map(segment => <line key={`${segment.from.claimId}-${segment.to.claimId}`} className={styles.line}
-      x1={segment.from.centerX} y1={segment.from.y!} x2={segment.to.centerX} y2={segment.to.y!} strokeDasharray={DASH[series.indexOf(segment.series) % 8]} />)}
+      x1={segment.from.centerX} y1={segment.from.y!} x2={segment.to.centerX} y2={segment.to.y!} style={seriesStyle(series.indexOf(segment.series))} strokeDasharray={seriesDash(series.indexOf(segment.series))} />)}
     {geometry.bars.map(point => point.y === null ? null : <g key={point.claimId} style={{ transform: `translate(${point.centerX}px, ${point.y}px)` }}
       {...markProps(props, point.category, `${label(spec, labels, point.category)} · ${seriesLabel(spec, labels, point.series)}: ${factValue(point, labels)}`, interactive)}>
-      <circle className={styles.point} cx="0" cy="0" r="3.5"><title>{label(spec, labels, point.category)} · {seriesLabel(spec, labels, point.series)}: {factValue(point, labels)}</title></circle></g>)}
+      <SeriesMarker index={series.indexOf(point.series)} title={`${label(spec, labels, point.category)} · ${seriesLabel(spec, labels, point.series)}: ${factValue(point, labels)}`} /></g>)}
     {geometry.ticks.map(tick => <text key={tick.category} x={tick.x} y="207" textAnchor="middle" className={styles.label}>{label(spec, labels, tick.category)}</text>)}
   </svg>;
 }
 
 export function ComboFamily(props: FamilyProps) {
   const { id, spec, labels } = props, g = comboGeometry(spec), interactive = interactiveOf(spec);
-  const seriesAll = [...g.barSeries, ...g.lineSeries];
+  const seriesAll = seriesOrderOf(props);
   const unit = (index: number) => labels?.units[spec.axisUnits?.[index] ?? ''] ?? spec.axisUnits?.[index] ?? '';
   return <svg viewBox={`0 0 ${g.width} ${g.height}`} className={styles.chart} style={{ minWidth: g.width }} aria-hidden={interactive ? undefined : true}>
     <Patterns id={id} count={seriesAll.length} />
@@ -106,13 +134,13 @@ export function ComboFamily(props: FamilyProps) {
     <text x="4" y="12" className={styles.label}>{unit(0)}</text>{g.dual && <text x={g.width - 4} y="12" textAnchor="end" className={styles.label}>{unit(1)}</text>}
     {g.bars.map(bar => bar.y === null ? null : <g key={bar.claimId} style={{ transform: `translate(${bar.x}px, 0px)` }}
       {...markProps(props, bar.category, `${label(spec, labels, bar.category)} · ${seriesLabel(spec, labels, bar.series)}: ${factValue(bar, labels)}`, interactive)}>
-      <rect x="0" y={Math.min(bar.y, g.baselineLeft)} width={bar.width} height={Math.abs(bar.y - g.baselineLeft)} className={`${styles.bar} ${styles.grow}`} fill={patternFill(id, seriesAll.indexOf(bar.series))}>
+      <rect x="0" y={Math.min(bar.y, g.baselineLeft)} width={bar.width} height={Math.abs(bar.y - g.baselineLeft)} className={`${styles.bar} ${styles.grow}`} style={seriesStyle(seriesAll.indexOf(bar.series))} fill={patternFill(id, seriesAll.indexOf(bar.series))}>
         <title>{label(spec, labels, bar.category)} · {seriesLabel(spec, labels, bar.series)}: {factValue(bar, labels)}</title></rect></g>)}
     {g.segments.map(segment => <line key={`${segment.from.claimId}-${segment.to.claimId}`} className={styles.line}
-      x1={segment.from.centerX} y1={segment.from.y!} x2={segment.to.centerX} y2={segment.to.y!} strokeDasharray={DASH[seriesAll.indexOf(segment.series) % 8]} />)}
+      x1={segment.from.centerX} y1={segment.from.y!} x2={segment.to.centerX} y2={segment.to.y!} style={seriesStyle(seriesAll.indexOf(segment.series))} strokeDasharray={seriesDash(seriesAll.indexOf(segment.series))} />)}
     {g.marks.map(point => point.y === null ? null : <g key={point.claimId} style={{ transform: `translate(${point.centerX}px, ${point.y}px)` }}
       {...markProps(props, point.category, `${label(spec, labels, point.category)} · ${seriesLabel(spec, labels, point.series)}: ${factValue(point, labels)}`, interactive)}>
-      <circle className={styles.point} cx="0" cy="0" r="4"><title>{label(spec, labels, point.category)} · {seriesLabel(spec, labels, point.series)}: {factValue(point, labels)}</title></circle></g>)}
+      <SeriesMarker index={seriesAll.indexOf(point.series)} title={`${label(spec, labels, point.category)} · ${seriesLabel(spec, labels, point.series)}: ${factValue(point, labels)}`} /></g>)}
     {g.ticks.map(tick => <text key={tick.category} x={tick.x} y="207" textAnchor="middle" className={styles.label}>{label(spec, labels, tick.category)}</text>)}
   </svg>;
 }
@@ -168,11 +196,13 @@ export function HeatmapFamily(props: FamilyProps) {
 
 export function PieFamily(props: FamilyProps & { donut: boolean }) {
   const { id, spec, labels, donut } = props, g = pieGeometry(spec, donut), interactive = g.slices.length <= FOCUSABLE_MARKS;
+  const categories = props.categoryOrder ?? spec.domain;
   const pct = (share: number) => `${Math.round(share * 1000) / 10}%`;
   return <div className={styles.pieWrap}>
     <svg viewBox={`0 0 ${g.width} ${g.height}`} className={styles.pie} aria-hidden={interactive ? undefined : true}>
-      <Patterns id={id} count={g.slices.length} />
-      {g.slices.map((slice, index) => {
+      <Patterns id={id} count={categories.length} />
+      {g.slices.map(slice => {
+        const index = categories.indexOf(slice.category);
         const text = `${label(spec, labels, slice.category)}: ${factValue(slice, labels)} (${pct(slice.share)})`;
         return <g key={slice.claimId} {...markProps(props, slice.category, text, interactive)}>
           <path d={slice.path} className={styles.slice} fillRule="evenodd" fill={patternFill(id, index)}><title>{text}</title></path>
@@ -181,18 +211,20 @@ export function PieFamily(props: FamilyProps & { donut: boolean }) {
       })}
       {donut && <text x={g.cx} y={g.cy + 4} textAnchor="middle" className={styles.label}>{labels?.fields[spec.yFields[0]] ?? spec.yFields[0]}</text>}
     </svg>
-    <ul className={styles.sliceList}>{g.slices.map((slice, index) => <li key={slice.claimId}>
-      <svg width="20" height="14" aria-hidden="true"><rect width="20" height="14" className={styles.bar} fill={patternFill(id, index)} /></svg>
+    <ul className={styles.sliceList}>{g.slices.map(slice => <li key={slice.claimId}>
+      <svg width="20" height="14" aria-hidden="true" style={seriesStyle(categories.indexOf(slice.category))}><rect width="20" height="14" className={styles.bar} fill={patternFill(id, categories.indexOf(slice.category))} /></svg>
       {label(spec, labels, slice.category)} · {pct(slice.share)}</li>)}</ul>
   </div>;
 }
 
 export function TreemapFamily(props: FamilyProps) {
   const { id, spec, labels } = props, g = treemapGeometry(spec), interactive = g.tiles.length <= FOCUSABLE_MARKS;
+  const categories = props.categoryOrder ?? spec.domain;
   const pct = (share: number) => `${Math.round(share * 1000) / 10}%`;
   return <svg viewBox={`0 0 ${g.width} ${g.height}`} className={styles.chart} style={{ minWidth: 520 }} aria-hidden={interactive ? undefined : true}>
-    <Patterns id={id} count={g.tiles.length} />
-    {g.tiles.map((tile, index) => {
+    <Patterns id={id} count={categories.length} />
+    {g.tiles.map(tile => {
+      const index = categories.indexOf(tile.category);
       const text = `${label(spec, labels, tile.category)}: ${factValue(tile, labels)} (${pct(tile.share)})`;
       return <g key={tile.claimId} style={{ transform: `translate(${tile.x}px, ${tile.y}px)` }} {...markProps(props, tile.category, text, interactive)}>
         <rect x="1" y="1" width={Math.max(0, tile.w - 2)} height={Math.max(0, tile.h - 2)} className={styles.tile} fill={patternFill(id, index)}><title>{text}</title></rect>

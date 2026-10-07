@@ -714,7 +714,7 @@ export function createSqliteStore(path: string): Store & WorkflowStore & Workflo
           if (!isLegacyTable(table)) throw new WorkflowStorageError('STORAGE', 'SQLite workflow reader received an unsupported table');
           return getRow<U>(table, id);
         },
-        async insertUnique<U extends { id: string }>(table: WorkflowStorageQuery['table'], row: U, key: { constraint: string; values: Record<string, string | number> }): Promise<{ inserted: true; row: U } | { inserted: false; existing: U }> {
+        async insertUnique<U extends { id: string }>(table: WorkflowStorageQuery['table'], row: U, key: { constraint: string; values: Record<string, string | number> }): Promise<{ inserted: true; row: U } | { inserted: false; existing: U; existingRowVersion?: number }> {
           assertActive();
           if (!workflowProjectionManifest.has(table)) throw new WorkflowStorageError('STORAGE', 'SQLite workflow writer received an unsupported table', true);
           const definition = getWorkflowProjection(table);
@@ -775,7 +775,7 @@ export function createSqliteStore(path: string): Store & WorkflowStore & Workflo
                 throw new WorkflowStorageError('CONFLICT', 'Workflow unique key conflicts with different immutable data', true);
               }
             }
-            return { inserted: false, existing: existing.body };
+            return { inserted: false, existing: existing.body, existingRowVersion: existing.rowVersion };
           }
           try {
             insertProjected(definition, 1, candidate.body, key.values);

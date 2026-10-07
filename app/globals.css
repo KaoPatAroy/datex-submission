@@ -20,6 +20,14 @@
   --accent-strong: #173ca5;
   --accent-soft: #e8eeff;
   --accent-ink: #244aaf;
+  --series-1: #2855d9;
+  --series-2: #e07a2e;
+  --series-3: #7b4fd0;
+  --series-4: #0e8fb3;
+  --series-5: #c4527a;
+  --series-6: #b58300;
+  --series-7: #142c60;
+  --series-8: #6b7a99;
   --warning: #985d13;
   --warning-soft: #fff4de;
   --danger: #a63d38;
@@ -257,6 +265,7 @@ button:disabled { cursor: not-allowed; }
 .form-field input, .form-field select { width: 100%; min-height: var(--control-height); padding: 9px 11px; border: 1px solid var(--control-line); border-radius: 9px; color: var(--ink); background: #fff; }
 .composer-box textarea:hover:not(:disabled), .form-field input:hover:not(:disabled), .form-field select:hover:not(:disabled) { border-color: var(--accent); }
 .form-hint { color: var(--muted); font-size: 12px; }
+.auth-note { margin: 8px 0 0; padding: 8px 12px; border-left: 3px solid var(--accent); background: var(--accent-soft); border-radius: 6px; color: var(--ink); font-size: 13px; }
 .auth-submit { width: 100%; margin-top: 8px; min-height: 43px; }
 .auth-privacy { margin: 15px 0 0; color: var(--muted); font-size: 12px; text-align: center; }
 

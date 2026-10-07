@@ -4,6 +4,7 @@ vi.mock('server-only', () => ({}));
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createSupabaseStoreFromClient } from '../lib/storage/supabase';
+import { withCommitConflictRetry } from '../lib/storage/conflict-retry';
 import { DomainError } from '../lib/core/errors';
 import { ConciergeService } from '../lib/core/service';
 import { actors, dashboardPayload } from './helpers/workspace';
@@ -147,6 +148,67 @@ describe('Supabase workflow adapter contract (controlled client; not PostgreSQL 
       await expect(service.dashboardShares(owner, grant.dashboardId)).rejects.toThrow();
     } finally { vi.unstubAllEnvs(); }
   });
+  it.each(['legacy', 'workflow'] as const)(
+    '%s commit stops after eight RPC revision conflicts with a truthful rollback error', async (operation) => {
+      const client = new ControlledSupabaseClient();
+      client.rpcResult = { data: null, error: { code: '40001', message: 'revision conflict' } };
+      const store = withCommitConflictRetry(createSupabaseStoreFromClient(client as unknown as SupabaseClient));
+      const branch: Branch = { id: 'always-conflicting-branch', name: 'Conflict', region: 'east' };
+      const timers = vi.spyOn(globalThis, 'setTimeout');
+      let callbacks = 0;
+      const write = operation === 'legacy'
+        ? store.transaction(async tx => { callbacks += 1; await tx.put('branches', branch); })
+        : store.workflowTransaction(async tx => {
+          callbacks += 1;
+          await tx.insertUnique('branches', branch, { constraint: 'branches_primary_key', values: { id: branch.id } });
+        });
+
+      await expect(write).rejects.toMatchObject({
+        code: 'CONFLICT', definitelyNotCommitted: true,
+        message: 'Supabase store transaction conflicted with a concurrent write',
+      });
+      expect(callbacks).toBe(8);
+      expect(client.rpcCalls).toHaveLength(8);
+      expect(client.rpcCalls.map(call => call.name)).toEqual(Array(8).fill(operation === 'legacy' ? 'nexus_commit' : 'nexus_workflow_commit'));
+      expect(client.reads.filter(call => call.table === 'appmeta')).toHaveLength(8);
+      expect(timers.mock.calls).toHaveLength(7);
+    }
+  );
+
+  it.each(['25P02', '40P01', '55P03', '57014', '23505'])(
+    'does not retry a failed transaction, lock error, timeout or constraint error (%s)', async (code) => {
+      const client = new ControlledSupabaseClient();
+      client.rpcResult = { data: null, error: { code, message: 'private database error' } };
+      const store = withCommitConflictRetry(makeStore(client));
+      const branch: Branch = { id: 'non-retryable-branch', name: 'Failure', region: 'east' };
+      const timers = vi.spyOn(globalThis, 'setTimeout');
+      await expect(store.workflowTransaction(tx => tx.insertUnique('branches', branch, {
+        constraint: 'branches_primary_key', values: { id: branch.id },
+      }))).rejects.toMatchObject({ code: 'STORAGE', definitelyNotCommitted: code === '23505' });
+      expect(client.rpcCalls).toHaveLength(1);
+      expect(timers.mock.calls).toHaveLength(0);
+    }
+  );
+
+  it.each(['projection read', 'read-only transaction'] as const)(
+    '%s stops after two unstable revisions and backs off before the second attempt', async (operation) => {
+      const client = new ControlledSupabaseClient();
+      client.onRead = () => { client.revision += 1; };
+      const store = makeStore(client);
+      const timers = vi.spyOn(globalThis, 'setTimeout');
+      const read = operation === 'projection read'
+        ? store.workflowProjectionReader.get('branches', 'unstable-branch')
+        : store.workflowTransaction(tx => tx.get('branches', 'unstable-branch'));
+
+      await expect(read).rejects.toMatchObject({ code: 'CONFLICT', definitelyNotCommitted: true });
+      expect(client.reads.filter(call => call.table === 'branches')).toHaveLength(2);
+      expect(client.reads.filter(call => call.table === 'appmeta')).toHaveLength(4);
+      expect(client.rpcCalls).toHaveLength(0);
+      expect(timers.mock.calls).toHaveLength(1);
+      expect(timers.mock.calls[0][1]).toBeGreaterThanOrEqual(25);
+      expect(timers.mock.calls[0][1]).toBeLessThanOrEqual(250);
+    }
+  );
 
   it('reads and guards legacy mixed tables when the V2 marker column is absent, without masking other failures', async () => {
     vi.stubEnv('WORKFLOW_V2_ENABLED', 'false');
@@ -432,7 +494,7 @@ describe('Supabase workflow adapter contract (controlled client; not PostgreSQL 
     const retryReceipt = { ...receipt, id: 'supabase-cas-valid-external-retry' };
     expect(await store.workflowTransaction((tx) => tx.insertUnique(
       'action_executions', retryReceipt, executionKey
-    ))).toEqual({ inserted: false, existing: receipt });
+    ))).toEqual({ inserted: false, existing: receipt, existingRowVersion: 1 });
     expect(client.reads.filter((read) => read.table === 'action_executions')).toHaveLength(1);
     expect(client.rpcCalls).toHaveLength(0);
     expect(JSON.stringify(client.rows.get('action_idempotency_roots'))).toBe(rootRowsBefore);

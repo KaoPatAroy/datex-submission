@@ -3,8 +3,8 @@ import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import {isIP} from 'node:net';
 import { cookies } from 'next/headers';
 import type { NextRequest } from 'next/server';
-import type { Actor, Mode, Profile, Store } from '../contracts';
-import { type SessionRow } from '../core/auth';
+import type { Actor, Mode, Store } from '../contracts';
+import { readCurrentProfile, type SessionRow } from '../core/auth';
 import { DomainError, invariant } from '../core/errors';
 import { digest, id } from '../core/utils';
 
@@ -15,7 +15,7 @@ function equal(a:string,b:string):boolean {const left=Buffer.from(a),right=Buffe
 function signedCookieSessionId(raw:string|undefined):string|undefined {if(!raw)return undefined;const [sessionId,signature,...rest]=raw.split('.');return sessionId&&signature&&!rest.length&&equal(signature,sign(sessionId))?sessionId:undefined;}
 export async function actorSession(store:Store):Promise<{actor:Actor;session:SessionRow}> {
   const raw=(await cookies()).get(cookieName)?.value;invariant(raw,'UNAUTHENTICATED','กรุณาเข้าสู่ระบบ',401);const [sessionId,signature,...rest]=raw.split('.');invariant(!rest.length&&signature&&equal(signature,sign(sessionId)),'UNAUTHENTICATED','การเข้าสู่ระบบนี้ใช้ต่อไม่ได้ กรุณาเข้าสู่ระบบใหม่',401);
-  const session=await store.get<SessionRow>('sessions',sessionId),profile=session?await store.get<Profile>('profiles',session.profileId):undefined;
+  const session=await store.get<SessionRow>('sessions',sessionId),profile=session?await readCurrentProfile(store,session.profileId):undefined;
   invariant(session&&profile?.active&&new Date(session.expiresAt)>new Date(),'UNAUTHENTICATED','การเข้าสู่ระบบนี้ใช้ต่อไม่ได้ กรุณาเข้าสู่ระบบใหม่',401);return {actor:{...profile,sessionId:session.id,mode:session.mode,modeRevision:session.modeRevision},session};
 }
 export function sameOrigin(request:NextRequest) {
@@ -27,7 +27,7 @@ export function sameOrigin(request:NextRequest) {
 export function checkCsrf(request:NextRequest,session:SessionRow) {sameOrigin(request);invariant(equal(request.headers.get('x-csrf-token')??'',session.csrfToken),'CSRF','ตรวจสอบคำขอนี้ไม่ได้ กรุณาโหลดหน้าใหม่แล้วลองอีกครั้ง',403);}
 export async function login(store:Store,profileId:string,accessCode:string):Promise<void> {
   const expected=process.env.DEMO_ACCESS_CODE;invariant(expected&&expected.length>=8,'CONFIGURATION','ยังไม่พร้อมให้เข้าสู่ระบบ กรุณาติดต่อผู้ดูแล',503);invariant(equal(digest(accessCode),digest(expected)),'UNAUTHENTICATED','รหัสเข้าใช้งานไม่ถูกต้อง กรุณาตรวจรหัสแล้วลองอีกครั้ง',401);
-  const profile=await store.get<Profile>('profiles',profileId);invariant(profile?.active,'UNAUTHENTICATED','โปรไฟล์นี้ยังเข้าใช้งานไม่ได้ กรุณาเลือกโปรไฟล์อื่นหรือติดต่อผู้ดูแล',401);
+  const profile=await readCurrentProfile(store,profileId);invariant(profile?.active,'UNAUTHENTICATED','โปรไฟล์นี้ยังเข้าใช้งานไม่ได้ กรุณาเลือกโปรไฟล์อื่นหรือติดต่อผู้ดูแล',401);
   const jar=await cookies(), previous=signedCookieSessionId(jar.get(cookieName)?.value);
   const row:SessionRow={id:id('session'),profileId,mode:'live_ai',modeRevision:0,csrfToken:randomBytes(24).toString('hex'),expiresAt:new Date(Date.now()+8*60*60_000).toISOString()};
   const cookieValue=`${row.id}.${sign(row.id)}`;

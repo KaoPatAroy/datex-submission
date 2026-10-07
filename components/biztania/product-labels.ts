@@ -1,4 +1,5 @@
 import type { ActionKind, Actor, ConversationMessage, PendingAction, ReceiptView, Role, Scope } from '@/lib/contracts';
+import { regionDefinitions } from '@/lib/dynamic/catalog/seed';
 
 export function messageTextWithLinkedReceiptOutcome(message: ConversationMessage, actions: PendingAction[], receipts: ReceiptView[]): string {
   if (message.role !== 'assistant') return message.text;
@@ -17,8 +18,9 @@ export function messageTextWithLinkedReceiptOutcome(message: ConversationMessage
 }
 
 export const roleName = (role: Role) => ({ executive: 'ผู้บริหาร', east_manager: 'ผู้จัดการภาคตะวันออก', hr_admin: 'ผู้ดูแลฝ่ายบุคคล', hr_director: 'ผู้อำนวยการฝ่ายบุคคล' })[role];
-export const regionName = (region: string) => ({ all: 'ทุกภูมิภาค', east: 'ภาคตะวันออก', central: 'ภาคกลาง', south: 'ภาคใต้' } as Record<string, string>)[region] ?? region;
-export const actionName = (kind: ActionKind) => ({ dashboard_create: 'สร้าง Dashboard', dashboard_share: 'แชร์ Dashboard', ticket_create: 'สร้าง Ticket ติดตามสาขา', badge_revoke: 'เพิกถอนบัตรพนักงาน', demo_update: 'เปลี่ยนข้อมูลตัวอย่าง' })[kind];
+export const regionName = (region: string) => region === 'all' ? 'ทุกภูมิภาค' : regionDefinitions.find(item => item.id === region)?.labels[0] ?? 'ภูมิภาคที่เลือก';
+const ACTION_LABELS: Record<ActionKind, string> = { dashboard_create: 'สร้าง Dashboard', dashboard_share: 'แชร์ Dashboard', ticket_create: 'สร้าง Ticket ติดตามสาขา', badge_revoke: 'เพิกถอนบัตรพนักงาน', demo_update: 'เปลี่ยนข้อมูลตัวอย่าง' };
+export const actionName = (kind: ActionKind) => Object.hasOwn(ACTION_LABELS, kind) ? ACTION_LABELS[kind] : 'รายการดำเนินการ';
 export const actorScope = (actor: Actor) => actor.regions.map(regionName).join(' · ');
 export const scopeName = (scope: Scope) => `${regionName(scope.region)} · ${scope.date}${scope.branchIds?.length ? ` · ${scope.branchIds.length} สาขา` : ' · สาขาที่ได้รับอนุญาต'}`;
 export function displayPerson(name: string) {
@@ -76,4 +78,4 @@ const OPERATION_LABELS: Record<string, string> = {
   value: 'ค่ารายการนี้', sum: 'ผลรวม', avg: 'ค่าเฉลี่ย', latest: 'ค่าจากช่วงเวลาล่าสุด', max: 'ค่าสูงสุด', gap: 'ส่วนต่างจากเป้าหมาย',
   weighted_ratio: 'สัดส่วนจากยอดรวม', difference: 'ผลต่าง', rank: 'อันดับ',
 };
-export const operationLabel = (operation: string) => OPERATION_LABELS[operation] ?? operation;
+export const operationLabel = (operation: string) => Object.hasOwn(OPERATION_LABELS, operation) ? OPERATION_LABELS[operation] : 'วิธีคำนวณอื่น';

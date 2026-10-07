@@ -67,7 +67,7 @@ const detailLabels: Record<string, string> = {
 
 /** Rows for the review dialog: the exact parameters the confirmation will act on. */
 export function proposalDetailRows(proposal: Pick<RouterProposalView, 'details'>): { key: string; label: string; value: string }[] {
-  return Object.entries(proposal.details).map(([key, value]) => ({
+  return Object.entries(proposal.details).filter(([key, value]) => key !== 'recipientIds' || !Array.isArray(value) || value.length > 0).map(([key, value]) => ({
     key, label: detailLabels[key] ?? 'รายละเอียด', value: Array.isArray(value) ? value.join(', ') : String(value),
   }));
 }

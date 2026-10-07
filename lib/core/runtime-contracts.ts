@@ -39,6 +39,7 @@ export interface TargetContext {
   targetId:string;
   recordId:string;
   operationKey:string;
+  executedAt?:string;
   conversationId:string;
   evidence?:Evidence;
   approvedPacks:PackPin[];
@@ -60,7 +61,7 @@ export interface TypedActionBinding<K extends ActionKind> {
   validate:(context:PackReadContext,payload:PayloadOf<K>)=>Promise<ValidationSnapshot>;
   targetIds:(payload:PayloadOf<K>)=>string[];
   overlaps:(candidate:PayloadOf<K>,claimed:PayloadOf<K>)=>boolean;
-  execute:(context:TargetWriteContext,payload:PayloadOf<K>)=>Promise<{recordId:string;dashboardId?:string}>;
+  execute:(context:TargetWriteContext,payload:PayloadOf<K>)=>Promise<{recordId:string;dashboardId?:string;executedAt?:string}>;
   verify:(context:TargetContext,payload:PayloadOf<K>)=>Promise<boolean>;
   visible:(context:PackReadContext,payload:PayloadOf<K>)=>Promise<boolean>;
 }

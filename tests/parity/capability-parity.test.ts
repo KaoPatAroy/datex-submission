@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('@/lib/core/turn-completion-gate', () => ({ readCompletedTurn: async () => ({ kind: 'completed' }) }));
+vi.mock('@/lib/core/turn-completion-gate', async importOriginal => ({
+  ...await importOriginal<typeof import('@/lib/core/turn-completion-gate')>(),
+  readCompletedTurn: async () => ({ kind: 'completed' }),
+}));
 
 import type { Actor, Branch } from '@/lib/contracts';
 import { createSemanticCatalog } from '@/lib/dynamic/catalog/semantic';

@@ -1,4 +1,6 @@
+import {withReadSnapshot} from '../storage/read-snapshot';
 import {z} from 'zod';
+import {MAX_FILTER_VALUES} from '../storage/filters';
 import {scopeSchema, dashboardSpecSchema, type Role, pendingActionRevisionDiffSchema, type Actor, type ActionCatalogEntry, type ActionCatalogStatus, type ActionPayload, type Analysis, type AuditEvent, type Badge, type Branch, type ConversationMessage, type Dashboard, type Employee, type Evidence, type Mode, type PendingAction, type PendingActionRevisionResult, type Profile, type Reader, type Receipt, type ReceiptView, type Scope, type SourceRef, type Store, type TargetResult, type Transaction, type TurnFailureReason, type TurnRequestIdentity, type TurnResponse, type Workspace} from '../contracts';
 import {liveAIKillSwitchOn} from '../dynamic/config';
 import {createSemanticCatalog} from '../dynamic/catalog/semantic';
@@ -12,7 +14,7 @@ import {assertDashboardRendererSupport,unsupportedWidgetResult,unsupportedWidget
 import {AIRuntimeError} from '../ai/errors';
 import {buildWorkspaceActionCatalog} from './action-catalog';
 import {actionRevisionRequestKeySchema,createDashboardRevision,revisionActionId} from './action-revision';
-import {digest,id} from './utils';
+import {digest,id,pendingActionApprovalHash} from './utils';
 import {ticketPlanLines} from './ticket-plan-text';
 import {actionPayloadSchema} from './action-schema';
 import {actionPermissions,defaultRuntimes,readOnly,RuntimeCatalog} from './runtime-catalog';
@@ -26,7 +28,7 @@ import {canReadHrEmployee,readBadgeSnapshot} from '../packs/hr-runtime';
 import {pendingActionSchema} from '../packs/shared';
 import {StorageReadUnavailableError} from '../storage/read-error';
 import {matchesPreparationTarget,policyForPrepareTool,type PreparationPolicy,type PrepareToolName} from './preparation-policy';
-import {assertCompletedActionTurn,finalAssistantContentDigest,normalizedFinalActionIds,readCompletedTurn,turnCompletionId,turnCompletionRecordSchema,turnCompletionTupleSchema,turnRequestCompletionProofSchema,type CompletedTurnRead,type TurnCompletionRecord,type TurnCompletionTuple} from './turn-completion-gate';
+import {assertCompletedActionTurn,finalAssistantContentDigest,normalizedFinalActionIds,prefetchCompletedTurns,readCompletedTurn,turnCompletionId,turnCompletionRecordSchema,turnCompletionTupleSchema,turnRequestCompletionProofSchema,type CompletedTurnRead,type TurnCompletionRecord,type TurnCompletionTuple} from './turn-completion-gate';
 import { TURN_WORK_DEADLINE_MS } from '../ai/provider-options';
 import {ACTION_DEFINITIONS,actionRegistry,createActionRegistry} from '../router/action-registry';
 import {buildPlannerContext,CONTEXT_LIMITS,NO_RESULT_MARK} from '../router/context/build-context';
@@ -175,9 +177,7 @@ export class ConciergeService {
     }});
   }
   private approvalHash(a:Pick<PendingAction,'actorId'|'sessionId'|'mode'|'modeRevision'|'payload'|'evidenceVersion'|'packs'|'expiresAt'|'receiptAccess'|'releaseRevision'|'actionContractVersion'|'approvalScope'|'approvalDisplay'|'predecessorActionId'|'revisionDiff'>){
-    const {actorId,sessionId,mode,modeRevision,payload,evidenceVersion,packs,expiresAt,receiptAccess,releaseRevision,actionContractVersion,approvalScope,approvalDisplay,predecessorActionId,revisionDiff}=a;
-    const approval={actorId,sessionId,mode,modeRevision,payload,evidenceVersion,packs,expiresAt,receiptAccess,releaseRevision,actionContractVersion,approvalScope,approvalDisplay};
-    return predecessorActionId===undefined&&revisionDiff===undefined?digest(approval):digest({...approval,predecessorActionId:predecessorActionId??null,revisionDiff:revisionDiff??[]});
+    return pendingActionApprovalHash(a);
   }
   private async assertNoDuplicateDashboardShare(tx:Transaction,actor:Actor,action:PendingAction):Promise<void>{
     if(action.payload.kind!=='dashboard_share')return;
@@ -672,8 +672,8 @@ export class ConciergeService {
     });
   }
   /** Router extras of this actor's assistant turns, keyed by turn id. */
-  private async turnExtras(actor:Actor):Promise<Map<string,{assistantMessageId:string;requiredPermissions:string[];content:Pick<ConversationMessage,'artifacts'|'choices'|'hint'|'followUps'|'receiptCards'>}>>{
-    const rows=(await this.store.list<{name:string;actorId:string;turnId:string;assistantMessageId:string;artifacts?:ConversationMessage['artifacts'];choices?:ConversationMessage['choices'];hint?:ConversationMessage['hint'];followUps?:unknown;receiptCards?:ConversationMessage['receiptCards'];requiredPermissions?:string[]}>('tool_executions',{actorId:actor.id,status:'completed'}))
+  private async turnExtras(actor:Actor,conversationId?:string):Promise<Map<string,{assistantMessageId:string;requiredPermissions:string[];content:Pick<ConversationMessage,'artifacts'|'choices'|'hint'|'followUps'|'receiptCards'>}>>{
+    const rows=(await this.store.list<{name:string;actorId:string;turnId:string;assistantMessageId:string;artifacts?:ConversationMessage['artifacts'];choices?:ConversationMessage['choices'];hint?:ConversationMessage['hint'];followUps?:unknown;receiptCards?:ConversationMessage['receiptCards'];requiredPermissions?:string[]}>('tool_executions',{actorId:actor.id,status:'completed',...(conversationId?{conversationId}:{})}))
       .filter(row=>row.name===TURN_EXTRAS_TOOL&&row.actorId===actor.id);
     return new Map(rows.map(row=>[row.turnId,{assistantMessageId:row.assistantMessageId,requiredPermissions:Array.isArray(row.requiredPermissions)?row.requiredPermissions.filter((p):p is string=>typeof p==='string'):[],content:{...(row.artifacts?{artifacts:row.artifacts}:{}),...(row.choices?{choices:row.choices}:{}),...(row.hint?{hint:row.hint}:{}),...(Array.isArray(row.followUps)&&row.followUps.every(t=>typeof t==='string')?{followUps:(row.followUps as string[]).slice(0,3)}:{}),...(Array.isArray(row.receiptCards)&&row.receiptCards.length?{receiptCards:row.receiptCards.slice(0,4)}:{})}}]));
   }
@@ -755,9 +755,9 @@ export class ConciergeService {
       invariant(action.payload.kind!=='badge_revoke'||this.badgeDisplayMatches(action,snapshot),'STALE_ACTION','Badge review changed before execution',409);
       const key=operationId+':'+targetId,recordId='effect_'+digest(key).slice(0,24),binding=this.catalog.action(action.payload.kind);
       const effect=await binding.execute({...this.context(tx,current,action.conversationId,true),tx,targetId,operationKey:key,recordId,conversationId:action.conversationId,evidence:snapshot.evidence,approvedPacks:action.packs},action.payload);
-      z.object({recordId:z.string().min(1),dashboardId:z.string().min(1).optional()}).strict().parse(effect);
+      z.object({recordId:z.string().min(1),dashboardId:z.string().min(1).optional(),executedAt:z.string().datetime({offset:true}).optional()}).strict().parse(effect);
       const receipt=await tx.get<Receipt>('action_executions',operationId);invariant(receipt,'NOT_FOUND','ไม่พบการดำเนินงาน',404);
-      await tx.put('action_executions',{...receipt,...(effect.dashboardId?{dashboardId:effect.dashboardId}:{}),results:receipt.results.map(r=>r.targetId===targetId?{...r,id:effect.recordId,detail:'ระบบปลายทางตอบรับ ยังต้องตรวจกลับ'}:r)});await this.audit(tx,current,'execute','ระบบ mock รับ '+action.payload.kind+' — รอ read-back',action.id,snapshot.evidence?.scope.region);
+      await tx.put('action_executions',{...receipt,...(effect.dashboardId?{dashboardId:effect.dashboardId}:{}),results:receipt.results.map(r=>r.targetId===targetId?{...r,id:effect.recordId,...(effect.executedAt?{executedAt:effect.executedAt}:{}),detail:'ระบบปลายทางตอบรับ ยังต้องตรวจกลับ'}:r)});await this.audit(tx,current,'execute','ระบบ mock รับ '+action.payload.kind+' — รอ read-back',action.id,snapshot.evidence?.scope.region);
     });
   }
   async reconcile(actor:Actor,receiptId:string,readbackRevision?:string):Promise<ReceiptView>{
@@ -778,7 +778,7 @@ export class ConciergeService {
       const results:TargetResult[]=[];
       for(const old of receipt.results){
         const key=receipt.id+':'+old.targetId,recordId=old.id??'effect_'+digest(key).slice(0,24);
-        const verified=await binding.verify({...readContext,evidence:undefined,targetId:old.targetId,recordId,operationKey:key,conversationId:action.conversationId,approvedPacks:action.packs},action.payload);
+        const verified=await binding.verify({...readContext,evidence:undefined,targetId:old.targetId,recordId,operationKey:key,executedAt:old.executedAt,conversationId:action.conversationId,approvedPacks:action.packs},action.payload);
         results.push(verified?{...old,id:recordId,status:'verified_success',detail:'ตรวจข้อมูลปลายทางตรงกับข้อมูลที่ยืนยันแล้ว'+(action.payload.kind==='ticket_create'&&action.payload.plan?' · '+ticketPlanLines(action.payload.plan).join(' · '):'')}:old.status==='failed'?old:{...old,status:'pending',detail:'ยังยืนยันผลปลายทางไม่ได้ — ไม่เขียนซ้ำ'});
       }
       const pending=results.some(r=>r.status==='pending'),status=pending?'pending':results.every(r=>r.status==='verified_success')?'verified_success':'failed';
@@ -905,7 +905,7 @@ export class ConciergeService {
   /** One share list for all relevant dashboards; labels share the assignee directory formatter. */
   private async dashboardShareRows(current:Actor,dashboardIds:string[]){
     const ids=new Set(dashboardIds);
-    const [grants,profiles]=await Promise.all([this.store.list<Share>('dashboard_shares'),this.store.list<Profile>('profiles')]);
+    const [grants,profiles]=await Promise.all([this.store.list<Share>('dashboard_shares',{dashboardId:dashboardIds.length===1?dashboardIds[0]:dashboardIds,actorId:current.id}),this.store.list<Profile>('profiles')]);
     const labels=personLabels(profiles.filter(profile=>profile.id!==current.id));
     return grants.filter(grant=>ids.has(grant.dashboardId)&&grant.actorId===current.id&&isActiveShareGrant(grant))
       .map(grant=>({dashboardId:grant.dashboardId,shareId:grant.id,recipientId:grant.recipientId,recipientName:labels.get(grant.recipientId)??'ผู้ติดต่อ',createdAt:grant.createdAt}))
@@ -1139,21 +1139,39 @@ export class ConciergeService {
   }
   /** HR Director catalog entries come from the V2 projection's runtime grant (same source as permitAction: decisions need staged proposals); no bridge = none. */
   private async directorCatalogGrant(actor:Actor){const port=await this.directorWorkflowSource();if(!port)return undefined;const grant=await port.capabilities(actor);return await this.stagedTableAvailable()?grant:{reads:grant.reads,decisions:[]};}
-  async getWorkspace(actor:Actor):Promise<Workspace>{
-    const current=await reloadActor(this.store,actor,this.now()),ctx=this.context(this.store,current),allowedBranches=new Set((await this.store.list<Branch>('branches')).filter(b=>current.regions.includes('*')||current.regions.includes(b.region)).map(b=>b.id));
-    const actions:PendingAction[]=[];for(const a of await this.store.list<PendingAction>('pending_actions'))if(a.actorId===current.id&&current.permissions.includes(actionPermissions[a.payload.kind])){const binding=this.catalog.actions.get(a.payload.kind);if(binding){try{
+  private async preloadWorkspaceEvidence(actor:Actor,branches:Branch[],scopes:Scope[]):Promise<void>{
+    if(this.store.adapter!=='supabase'||!scopes.length||!actor.permissions.includes('sales.read')||!actor.permissions.includes('operations.read'))return;
+    const dates=[...new Set(scopes.map(scope=>scope.date))],ids=branches.filter(branch=>actor.regions.includes('*')||actor.regions.includes(branch.region)).map(branch=>branch.id);
+    if(dates.length+ids.length>MAX_FILTER_VALUES)return;
+    // Bounded cohort reads; a full cached selection can serve narrower dashboard queries.
+    // If the bound is reached, the snapshot treats it as partial and reads each scope normally.
+    const tables=['sales_orders','sales_targets','inventory_snapshots','incidents','staffing_summaries'] as const;
+    await Promise.all(tables.map(async table=>{
+      try{await this.store.list(table,{date:dates,branchId:ids},{limit:10000});}
+      catch(error){if(!isKnownCatalogReadUnavailable(error))throw error;}
+    }));
+  }
+  private async readWorkspaceConversation(actor:Actor,conversationId?:string){
+    const current=await reloadActor(this.store,actor,this.now()),ctx=this.context(this.store,current);
+    const filters={actorId:current.id,...(conversationId?{conversationId}:{})};
+    const [branchRows,actionRows,storedMessages]=await Promise.all([
+      this.store.list<Branch>('branches'),this.store.list<PendingAction>('pending_actions',filters),this.store.list<ConversationMessage>('conversation_messages',filters),
+    ]);
+    const allowedBranches=new Set(branchRows.filter(b=>current.regions.includes('*')||current.regions.includes(b.region)).map(b=>b.id));
+    await prefetchCompletedTurns(this.store,[...actionRows.map(a=>this.completionTuple(a,{conversationId:a.conversationId,turnId:a.turnId})),...storedMessages.filter(m=>m.role==='assistant'&&m.turnId&&m.sessionId).map(m=>({actorId:m.actorId,sessionId:m.sessionId!,conversationId:m.conversationId,turnId:m.turnId!,mode:m.mode,modeRevision:m.modeRevision}))]);
+    const scopes=actionRows.flatMap(action=>{const parsed=scopeSchema.safeParse(action.payload.kind==='dashboard_create'?action.payload.spec.scope:action.payload.kind==='ticket_create'?action.payload.scope:undefined);return parsed.success?[parsed.data]:[];});
+    await this.preloadWorkspaceEvidence(current,branchRows,scopes);
+    const actions:PendingAction[]=[];for(const a of actionRows)if(a.actorId===current.id&&current.permissions.includes(actionPermissions[a.payload.kind])){const binding=this.catalog.actions.get(a.payload.kind);if(binding){try{
       const completed=await readCompletedTurn(this.store,this.completionTuple(a,{conversationId:a.conversationId,turnId:a.turnId}),a.id);
       if(completed.kind==='completed'&&await this.badgeHistoryVisible(this.store,current,a)&&await binding.visible(ctx,a.payload))actions.push(a.status==='pending'&&a.releaseRevision!==this.releaseRevision?{...a,status:'stale'}:a);
     }catch(error){if(!(error instanceof DomainError)||![403,404,409].includes(error.status))throw error;}}}
     const badgeReviews:NonNullable<Workspace['badgeReviews']>={};
     for(const action of actions)if(action.payload.kind==='badge_revoke')badgeReviews[action.id]=await this.badgeReview(current,action);
-    const allowedActions=new Set(actions.map(a=>a.id));const dashboards:Dashboard[]=[];
-    if(current.permissions.includes('sales.read'))for(const d of await this.store.list<Dashboard>('dashboards'))if(d.ownerId===current.id){try{dashboards.push((await this.dashboard(current,d.id,{vizData:false})).dashboard);}catch(error){if(!(error instanceof DomainError))throw error;}}
-    const inbox:Workspace['inbox']=[];for(const m of await this.store.list<Inbox>('mock_messages'))if(m.recipientId===current.id){try{const d=await this.dashboard(current,m.dashboardId,{vizData:false});inbox.push({id:m.id,dashboardId:d.dashboard.id,title:d.dashboard.spec.title,createdAt:m.createdAt,...(d.sharedBy?{sharedBy:d.sharedBy.name}:{})});}catch{/* revoked grants reveal no stored summaries */}}
+    const allowedActions=new Set(actions.map(a=>a.id));
     const messageProofs=new Map<string,Promise<CompletedTurnRead>>();
-    const extras=await this.turnExtras(current);
+    const extras=await this.turnExtras(current,conversationId);
     const answerPermissions=new Map<string,string[]>();
-    const messageRows=(await this.store.list<ConversationMessage>('conversation_messages')).filter(m=>m.actorId===current.id).map(m=>{
+    const messageRows=storedMessages.filter(m=>m.actorId===current.id).map(m=>{
       const extra=m.role==='assistant'&&m.turnId?extras.get(m.turnId):undefined;
       if(extra&&extra.assistantMessageId===m.id){
         if(extra.requiredPermissions.length)answerPermissions.set(m.id,extra.requiredPermissions);
@@ -1175,12 +1193,32 @@ export class ConciergeService {
       const completed=proof?.kind==='completed'&&proof.assistant.id===m.id;
       const denied=m.role==='assistant'&&(!completed||[...(m.pendingActionIds??[]),...(m.pendingActionId?[m.pendingActionId]:[])].some(actionId=>!allowedActions.has(actionId))||[...sourceIds].some(s=>!this.catalog.canCite(current,s,allowedBranches))||(answerPermissions.get(m.id)??[]).some(permission=>!current.permissions.includes(permission)));
       return denied?{...m,text:'ประวัตินี้อยู่นอกสิทธิ์ปัจจุบัน',analysis:undefined,evidence:undefined,sources:undefined,pendingActionId:undefined,pendingActionIds:undefined,receiptId:undefined,artifacts:undefined,choices:undefined,receiptCards:undefined}:m;
-    }));const allowedManifests=this.catalog.manifests.filter(p=>p.tools.some(t=>t.audit==='read'&&current.permissions.includes(t.permission)));
+    }));
+    return{current,branchRows,actions,badgeReviews,messages,messageProofs};
+  }
+  async getConversationHistory(actor:Actor,conversationId:string):Promise<Pick<Workspace,'messages'|'actions'>>{
+    return withReadSnapshot(this.store,async()=>{const context=await this.readWorkspaceConversation(actor,conversationId);return{messages:context.messages,actions:context.actions};});
+  }
+  async getWorkspace(actor:Actor):Promise<Workspace>{
+    return withReadSnapshot(this.store,()=>this.buildWorkspace(actor));
+  }
+  private async buildWorkspace(actor:Actor):Promise<Workspace>{
+    const {current,branchRows,actions,badgeReviews,messages,messageProofs}=await this.readWorkspaceConversation(actor);
+    const [dashboardRows,inboxRows,receiptRows,auditRows,profileRows]=await Promise.all([
+      current.permissions.includes('sales.read')?this.store.list<Dashboard>('dashboards',{ownerId:current.id}):Promise.resolve([]),this.store.list<Inbox>('mock_messages',{recipientId:current.id}),
+      this.store.list<Receipt>('action_executions',{actorId:current.id}),this.store.list<AuditEvent>('audit_events',{actorId:current.id}),this.store.list<Profile>('profiles'),
+    ]);
+    const scopes=dashboardRows.flatMap(dashboard=>{const parsed=scopeSchema.safeParse(dashboard.spec?.scope);return parsed.success?[parsed.data]:[];});
+    await this.preloadWorkspaceEvidence(current,branchRows,[...scopes,{date:this.businessDate,region:'all'}]);
+    const dashboards:Dashboard[]=[];
+    if(current.permissions.includes('sales.read'))for(const d of dashboardRows)if(d.ownerId===current.id){try{dashboards.push((await this.dashboard(current,d.id,{vizData:false})).dashboard);}catch(error){if(!(error instanceof DomainError)&&!isKnownCatalogReadUnavailable(error))throw error;}}
+    const inbox:Workspace['inbox']=[];for(const m of inboxRows)if(m.recipientId===current.id&&typeof m.dashboardId==='string'){try{const d=await this.dashboard(current,m.dashboardId,{vizData:false});inbox.push({id:m.id,dashboardId:d.dashboard.id,title:d.dashboard.spec.title,createdAt:m.createdAt,...(d.sharedBy?{sharedBy:d.sharedBy.name}:{})});}catch{/* revoked grants reveal no stored summaries */}}
+    const allowedManifests=this.catalog.manifests.filter(p=>p.tools.some(t=>t.audit==='read'&&current.permissions.includes(t.permission)));
     const actionCatalog=await this.workspaceActionCatalog(current);
     // HR Director (Workflow V2): the onboarding reads/decisions are not pack tools, so a Director has no pack capability; the V2 projection's own grant is what lets the actor use the assistant.
     const directorPort=await this.directorWorkflowSource(),directorGrant=directorPort?await directorPort.capabilities(current):NO_DIRECTOR_CAPABILITIES;
     const directorCapabilities=directorGrant.reads.length||directorGrant.decisions.length?[{id:'hr_director_onboarding',title:'อนุมัติ onboarding (HR Director)',allowed:true,tools:[],templates:[]}]:[];
-    const workspace:Workspace={actor:current,csrfToken:'',businessDate:this.businessDate,storage:this.store.adapter,metrics:allowedManifests.flatMap(p=>p.metrics),dashboards,actions,badgeReviews,receipts:await Promise.all((await this.store.list<Receipt>('action_executions')).filter(r=>r.actorId===current.id&&(r as {contractVersion?:unknown}).contractVersion!==2).map(async r=>this.receiptView(current,await this.store.get<PendingAction>('pending_actions',r.actionId),r))),audit:(await this.store.list<AuditEvent>('audit_events')).filter(e=>e.actorId===current.id&&(!e.region||e.region==='all'||current.regions.includes(e.region))),messages,inbox,profiles:(await this.store.list<Profile>('profiles')).filter(p=>p.active).map(({id,name,role})=>({id,name,role})),capabilities:withChatCapability([...this.catalog.manifests.map(p=>({id:p.id,title:p.title,allowed:p.tools.some(t=>(t.audit==='read'||t.audit==='prepare')&&this.catalog.allowsTool(current,t.name)),tools:p.tools.filter(t=>(t.audit==='read'||t.audit==='prepare')&&this.catalog.allowsTool(current,t.name)).map(t=>t.name),templates:p.templates.filter(()=>current.permissions.includes('dashboard.create')&&this.catalog.readPermissions(this.catalog.action('dashboard_create').packIds).every(permission=>current.permissions.includes(permission))).map(t=>({id:t.id,title:t.title}))})),...directorCapabilities]),actionCatalog:actionCatalog.entries,actionCatalogStatus:actionCatalog.status};
+    const workspace:Workspace={actor:current,csrfToken:'',businessDate:this.businessDate,storage:this.store.adapter,metrics:allowedManifests.flatMap(p=>p.metrics),dashboards,actions,badgeReviews,receipts:await Promise.all(receiptRows.filter(r=>r.actorId===current.id&&(r as {contractVersion?:unknown}).contractVersion!==2).map(async r=>this.receiptView(current,await this.store.get<PendingAction>('pending_actions',r.actionId),r))),audit:auditRows.filter(e=>e.actorId===current.id&&(!e.region||e.region==='all'||current.regions.includes(e.region))),messages,inbox,profiles:profileRows.filter(p=>p.active).map(({id,name,role})=>({id,name,role})),capabilities:withChatCapability([...this.catalog.manifests.map(p=>({id:p.id,title:p.title,allowed:p.tools.some(t=>(t.audit==='read'||t.audit==='prepare')&&this.catalog.allowsTool(current,t.name)),tools:p.tools.filter(t=>(t.audit==='read'||t.audit==='prepare')&&this.catalog.allowsTool(current,t.name)).map(t=>t.name),templates:p.templates.filter(()=>current.permissions.includes('dashboard.create')&&this.catalog.readPermissions(this.catalog.action('dashboard_create').packIds).every(permission=>current.permissions.includes(permission))).map(t=>({id:t.id,title:t.title}))})),...directorCapabilities]),actionCatalog:actionCatalog.entries,actionCatalogStatus:actionCatalog.status};
     const taskAssignees=current.permissions.includes('ticket.create')
       ?await recipientDirectory(this.store,current,(a,id)=>this.recipientAllowed(a,id),CONTEXT_LIMITS.recipients):[];
     workspace.taskAssigneeOptions=taskAssignees.map(profile=>({id:profile.id,label:profile.name}));

@@ -1,4 +1,5 @@
 import { isRevisionConflict } from './supabase';
+import { waitForRevisionRetry } from './retry-backoff';
 
 /**
  * Service-level retry for revision conflicts on the PostgreSQL adapter.
@@ -11,20 +12,22 @@ import { isRevisionConflict } from './supabase';
  */
 export const COMMIT_CONFLICT_MAX_ATTEMPTS = 8;
 
-const backoff = (attempt: number) => new Promise<void>(resolve => setTimeout(resolve, Math.floor(Math.random() * (10 + attempt * 15))));
-
 async function retrying<T>(run: () => Promise<T>, attempts: number): Promise<T> {
-  for (let attempt = 0; ; attempt += 1) {
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
     try {
       return await run();
     } catch (error) {
       if (!isRevisionConflict(error) || attempt >= attempts - 1) throw error;
-      await backoff(attempt);
+      await waitForRevisionRetry(attempt);
     }
   }
+  throw new Error('Commit conflict retry exhausted without a result');
 }
 
 export function withCommitConflictRetry<S extends object>(store: S, attempts = COMMIT_CONFLICT_MAX_ATTEMPTS): S {
+  if (!Number.isSafeInteger(attempts) || attempts < 1 || attempts > COMMIT_CONFLICT_MAX_ATTEMPTS) {
+    throw new RangeError(`Commit conflict attempts must be an integer between 1 and ${COMMIT_CONFLICT_MAX_ATTEMPTS}`);
+  }
   return new Proxy(store, {
     get(target, property, receiver) {
       const value = Reflect.get(target, property, receiver) as unknown;
